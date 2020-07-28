@@ -1,0 +1,3 @@
+import pulsar.machine
+
+machine = pulsar.machine.Machine()

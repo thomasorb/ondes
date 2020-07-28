@@ -1,0 +1,32 @@
+import pulsar.sequencer
+import pulsar.core
+import multiprocessing as mp
+
+
+class Machine(object):
+
+    def __init__(self):
+        data = pulsar.core.Data()
+        self.processes = list()
+        
+        self.processes.append(
+            mp.Process(name='seq',
+                       target=pulsar.sequencer.Sequencer,
+                       args=(data,)))
+
+        self.processes.append(
+            mp.Process(name='seq2',
+                       target=pulsar.sequencer.Sequencer,
+                       args=(data,)))
+
+        for iproc in self.processes:
+            iproc.start()
+
+        seq2.data.tempo = 4
+        print(seq.data.tempo)
+
+        for iproc in self.processes:
+            iproc.join()
+        
+        
+
