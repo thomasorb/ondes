@@ -54,6 +54,10 @@ def read_msg(msg, n):
             elif c == '|':
                 index += 8
                 index -= index%8
+            elif c == ':':
+                index += 4
+                index -= index%4
+            
             
             if index >= n: break
         return arr

@@ -36,7 +36,11 @@ class Sample(object):
         sd.play(self.data, config.SAMPLERATE, device=config.DEVICE, blocking=False)
 
     def apply(self, effect, *args):
-        self.data = getattr(effects, effect)(self.data, *args)
+        data = getattr(effects, effect)(self.data, *args)
+        if len(data)%2:
+            data = np.concatenate((data, np.zeros((1, data.shape[1]), dtype=data.dtype)))
+        self.data = data
+            
 
     def save(self, path):
         sf.write(path, self.data, config.SAMPLERATE)
