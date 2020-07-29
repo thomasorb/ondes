@@ -14,7 +14,7 @@ class Player(object):
     def __init__(self, data):
         assert isinstance(data, core.Data)
         self.data = data
-        zerosdata = np.zeros((config.BLOCKSIZE, config.CHANNELS), dtype=config.DTYPE)
+        zerosdata = np.zeros((config.BLOCKSIZE, 2), dtype=config.DTYPE)
             
         def callback(outdata, frames, time, status):
             assert frames == config.BLOCKSIZE
@@ -26,8 +26,8 @@ class Player(object):
                 data = zerosdata
             else:
                 try:
-                    data = self.data.qget()
-                except queue.Empty:
+                    data = self.data.get_block()
+                except core.BufferEmpty:
                     #logging.warn('Buffer is empty: increase buffersize?')
                     data = zerosdata
 
@@ -42,7 +42,7 @@ class Player(object):
 
         self.stream = sd.OutputStream(
             samplerate=config.SAMPLERATE, blocksize=config.BLOCKSIZE,
-            device=config.DEVICE, channels=config.CHANNELS, dtype=config.DTYPE,
+            device=config.DEVICE, channels=2, dtype=config.DTYPE,
             callback=callback)#, finished_callback=self.data.event.set)
 
         self.stream.start()
@@ -58,25 +58,3 @@ class Player(object):
             self.stream.close()
         except Exception as e:
             pass 
-
-# event = threading.Event()
-
-
-
-
-# try:
-
-#     with sf.SoundFile(args.filename) as f:
-#         for _ in range(args.buffersize):
-#             data = f.buffer_read(args.blocksize, ctype='float')
-#             if not data:
-#                 break
-#             q.put_nowait(data)  # Pre-fill queue
-
-#         
-#         with stream:
-#             timeout = args.blocksize * args.buffersize / f.samplerate
-#             while data:
-#                 data = f.buffer_read(args.blocksize, ctype='float')
-#                 q.put(data, timeout=timeout)
-#             event.wait()  # Wait until playback is finished
