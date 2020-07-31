@@ -8,7 +8,7 @@ from . import core
 from . import ccore
 from . import utils
 from . import config
-
+from . import effects
 
 class Wave(object):
 
@@ -24,8 +24,20 @@ class Wave(object):
         
         sampleR = sampleR[ccore.get_first_zero(sampleL):ccore.get_last_zero(sampleL)]
         sampleL = sampleL[ccore.get_first_zero(sampleL):ccore.get_last_zero(sampleL)]
-        self.downsample = np.array((sampleL, sampleR)).T
         
+        sample = np.array((sampleL, sampleR)).T
+        if len(sample)%2:
+            sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+        
+        self.downsample = sample
+
+    def apply(self, effect, *args):
+        sample = getattr(effects, effect)(self.downsample, *args)
+        if len(sample)%2:
+            sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+        self.downsample = sample
+
+
 class Synth(object):
 
     def __init__(self, name, data, mode='sine', dirty=300):
@@ -35,12 +47,9 @@ class Synth(object):
         self.name = 's{}'.format(name)
         
         wave = Wave(mode=mode, dirty=dirty)
-        self.downsample = np.copy(wave.downsample)
-        self.downsamplef = scipy.interpolate.interp1d(
-            np.arange(len(self.downsample)),
-            self.downsample, axis=0)
         
-        self.data.set_sample(self.name, np.copy(self.downsample))
+        self.replace(wave)
+        
         self._hash = self.data[self.name + 'hash'][:]
         
     def get_samples(self, note, duration):
@@ -81,18 +90,14 @@ class Synth(object):
 
     def play(self, note, duration):
         sample = self.get_samples(note, duration)
-
-        index = 0
-        while index < len(sample) - 1:
-            if self.data.buffer_is_full('synth'):
-                time.sleep(config.SLEEPTIME)
-                continue
-
-            self.data.put_block(
-                'synth',
-                sample[index:index+config.BLOCKSIZE,0],
-                sample[index:index+config.BLOCKSIZE,1])
-            index += config.BLOCKSIZE
+        core.play_on_buffer('synth', self.data, sample)
             
-        #def add(self, wave)
+    def replace(self, wave):
+        assert isinstance(wave, Wave)
+        self.downsample = np.copy(wave.downsample)
+        self.downsamplef = scipy.interpolate.interp1d(
+            np.arange(len(self.downsample)),
+            self.downsample, axis=0)
 
+        self.data.set_sample(self.name, np.copy(self.downsample))
+        self._hash = self.data[self.name + 'hash'][:]

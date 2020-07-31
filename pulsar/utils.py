@@ -81,6 +81,63 @@ def read_msg(msg, n):
         if index >= n: break
     return arr
 
+def read_synth_msg(msg, n):
+    renote = re.compile(r'[\dABCDEFG#?]+')
+    
+
+    arr = -np.ones(n, dtype=int)
+    arrd = np.zeros(n, dtype=int)
+    index = 0
+
+    notestart = False
+    last_note_index = 0
+    i = 0
+    while not i == len(msg) - 1:
+        c = msg[i]
+        i += 1
+        
+        if c=='.':
+            if notestart:
+                arrd[last_note_index] = index - last_note_index
+                
+            notestart = False
+            index += 1
+            
+        elif c == '|':
+            index += 8
+            index -= index%8
+        elif c == ':':
+            index += 4
+            index -= index%4
+        elif c == '=':
+            index += 1        
+        elif renote.findall(c) != []:
+            inote = c
+            if not notestart:
+                notestart = True
+                last_note_index = int(index)
+            else: 
+                arrd[last_note_index] = index - last_note_index
+                last_note_index = int(index)
+                
+            while renote.findall(msg[i]) != []:
+                c = msg[i]
+                inote += c
+                i += 1
+            arr[last_note_index] = get_note_value(inote)
+            print(inote)
+                        
+        else:
+            raise Exception('bad msg formatting')
+    if notestart:
+        arrd[last_note_index] = index - last_note_index
+
+                
+
+    #for idur, inote in zip(durs, notes):
+    #    get_note_value(inote)
+    return arr, arrd
+
 def note2f(note, a_midikey):
     return 440. / 2**(float(a_midikey - note) / 12.) / 2.
 
@@ -110,5 +167,11 @@ def get_note_name(note):
     notes = ['C ', 'C#', 'D ', 'D#', 'E ', 'F ', 'F#', 'G ', 'G#', 'A ', 'A#', 'B ']    
     return '{}{}'.format(notes[note%12], note//12)
 
-        
+def get_note_value(note):
+    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    reoct = re.compile(r'[\d?]+')
+    renote = re.compile(r'[ABCDEFG#?]+')
 
+    octave = int(reoct.findall(note)[0])
+    note = renote.findall(note)[0]
+    return octave*12 + notes.index(note)

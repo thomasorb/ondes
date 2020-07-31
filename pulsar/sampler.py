@@ -37,18 +37,7 @@ class Sample(object):
         if data is None:
             sd.play(self.sample, config.SAMPLERATE, device=config.DEVICE, blocking=False)
         else:
-            index = 0
-            while index < len(self.sample) - 1:
-                if data.buffer_is_full('sampler'):
-                    time.sleep(config.SLEEPTIME)
-                    continue
-                
-                data.put_block(
-                    'sampler',
-                    self.sample[index:index+config.BLOCKSIZE,0],
-                    self.sample[index:index+config.BLOCKSIZE,1])
-                index += config.BLOCKSIZE
-                
+            core.play_on_buffer('sampler', data, self.sample)                
 
     def apply(self, effect, *args):
         sample = getattr(effects, effect)(self.sample, *args)

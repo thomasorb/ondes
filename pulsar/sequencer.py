@@ -37,16 +37,22 @@ class Track(object):
         self.index = int(index)
         self.name = '{}{}'.format(self.basename, self.index)
         assert hasattr(self.data, self.name), 'bad track index'
+
+    def set(self, track):
+        self.data[self.name][:len(track)] = track
+
+    def get(self):
+        return self.data[self.name][:self.data.steps.get()]
         
     def __lshift__(self, msg):
         if isinstance(msg, str):
             msg = utils.read_msg(msg, self.data.steps.get())
         elif not isinstance(msg, np.ndarray):
             raise Exception('bad msg type')
-        self.data[self.name][:len(msg)] = msg
+        self.set(msg)
 
     def __repr__(self):
-        track = self.data[self.name][:self.data.steps.get()]
+        track = self.get()
         string = list(np.where(track, 'x', '.', ))
         for i in range(0, len(string), 9):
             string.insert(i, '|')
@@ -58,9 +64,24 @@ class Track(object):
 class STrack(Track):
     basename = 'strack'
 
+    def set(self, track, trackd):
+        self.data[self.name][:len(track)] = track
+        self.data[self.name + 'd'][:len(trackd)] = trackd
+
+    def get(self):
+        return (self.data[self.name][:self.data.steps.get()],
+                self.data[self.name + 'd'][:self.data.steps.get()])
+
+    def __lshift__(self, msg):
+        if isinstance(msg, str):
+            msg = utils.read_synth_msg(msg, self.data.steps.get())
+        elif not isinstance(msg, tuple):
+            raise Exception('bad msg type')
+        self.set(*msg)
+
+    
     def __repr__(self):
-        track = self.data[self.name][:self.data.steps.get()]
-        trackd = self.data[self.name + 'd'][:self.data.steps.get()]
+        track, trackd = self.get()
         string = list()
         dur = 0
         for i, d in zip(track, trackd):
@@ -68,7 +89,7 @@ class STrack(Track):
                 string.append(utils.get_note_name(i))
                 dur = int(d) - 1
             elif dur > 0:
-                string.append('===')
+                string.append(' = ')
                 dur -= 1
                 
             else:
@@ -96,6 +117,7 @@ class SamplerScore(object):
         for itrack in range(self.max_scores):
             string += '{}: {}\n'.format(itrack, self[itrack])
         return string
+    
     __str__ = __repr__
 
 class SynthScore(SamplerScore):
@@ -110,8 +132,8 @@ class Sequencer(object):
     def __init__(self, data):
         assert isinstance(data, core.Data)
         self.data = data
-        self.step = 0
-        self.measure = 0
+        self.step = -1
+        self.measure = -1
         
         
         self.data['track0'][0] = True
@@ -136,11 +158,13 @@ class Sequencer(object):
         for isynth in range(config.MAX_SYNTHS):
             self.synths.append(synth.Synth(isynth, self.data))
 
-        self.last_step_time = time.time()
+        self.last_step_time = 0#time.time()
         while True:
+            # if paused
             if not self.data.play.get():
                 time.sleep(config.SLEEPTIME)
-                self.step = 0 # restart at sequencer at the beginning of a measure
+                self.step = -1 # restart at sequencer at the beginning of a measure
+                self.samples = list()
                 continue
             
             now = time.time()

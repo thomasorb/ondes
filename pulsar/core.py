@@ -3,6 +3,7 @@ import ctypes
 import multiprocessing.sharedctypes
 import multiprocessing as mp
 import logging
+import time
 
 from . import config
 from . import utils
@@ -264,4 +265,20 @@ class Data(object):
             setattr(self, name, Array(init))
         else:
             logging.warn('attribute {} already exists'.format(name))
+
+
+def play_on_buffer(bufname, data, sample):
+    assert isinstance(data, Data)
+
+    index = 0
+    while index < len(sample) - 1:
+        if data.buffer_is_full(bufname):
+            time.sleep(config.SLEEPTIME)
+            continue
+
+        data.put_block(
+            bufname,
+            sample[index:index+config.BLOCKSIZE,0],
+            sample[index:index+config.BLOCKSIZE,1])
+        index += config.BLOCKSIZE
 
