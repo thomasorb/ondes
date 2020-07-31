@@ -3,6 +3,7 @@ import sounddevice as sd
 import logging
 import numpy as np
 import os
+import time
 
 from . import core
 from . import config
@@ -16,34 +17,47 @@ class Sample(object):
             if not os.path.exists(path):
                 path = config.SAMPLES_FOLDER + path
             with open(path, 'rb') as f:
-                data, samplerate = sf.read(f)
-                if len(data.shape) == 1:
-                    data = np.array([data, data]).T
-                if len(data.shape) != 2:
-                    raise Exception('bad sample format: {}'.format(data.shape))
-                if data.shape[1] != 2:
-                    raise Exception('bad sample format: {}'.format(data.shape))
-            if len(data)%2:
-                data = np.concatenate((data, np.zeros((1, data.shape[1]), dtype=data.dtype)))
+                sample, samplerate = sf.read(f)
+                if len(sample.shape) == 1:
+                    sample = np.array([sample, sample]).T
+                if len(sample.shape) != 2:
+                    raise Exception('bad sample format: {}'.format(sample.shape))
+                if sample.shape[1] != 2:
+                    raise Exception('bad sample format: {}'.format(sample.shape))
+            if len(sample)%2:
+                sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
                 
-            self.data = data
+            self.sample = sample
         elif isinstance(path, np.ndarray):
-            self.data = path
+            self.sample = path
         else:
-            raise Exception('unknown data')
+            raise Exception('unknown sample')
                     
-    def play(self):
-        sd.play(self.data, config.SAMPLERATE, device=config.DEVICE, blocking=False)
+    def play(self, data=None):
+        if data is None:
+            sd.play(self.sample, config.SAMPLERATE, device=config.DEVICE, blocking=False)
+        else:
+            index = 0
+            while index < len(self.sample) - 1:
+                if data.buffer_is_full('sampler'):
+                    time.sleep(config.SLEEPTIME)
+                    continue
+                
+                data.put_block(
+                    'sampler',
+                    self.sample[index:index+config.BLOCKSIZE,0],
+                    self.sample[index:index+config.BLOCKSIZE,1])
+                index += config.BLOCKSIZE
+                
 
     def apply(self, effect, *args):
-        data = getattr(effects, effect)(self.data, *args)
-        if len(data)%2:
-            data = np.concatenate((data, np.zeros((1, data.shape[1]), dtype=data.dtype)))
-        self.data = data
+        sample = getattr(effects, effect)(self.sample, *args)
+        if len(sample)%2:
+            sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+        self.sample = sample
             
-
     def save(self, path):
-        sf.write(path, self.data, config.SAMPLERATE)
+        sf.write(path, self.sample, config.SAMPLERATE)
         
 
 class Sampler(object):
@@ -61,24 +75,24 @@ class Sampler(object):
             
     def load(self, name, path):
         try:
-            data = self.open(path)
+            sample = self.open(path)
         except Exception as e:
             logging.warn('error reading sample {}: {}'.format(path, e))
         else:
-            self.data.set_sample(name, data)
+            self.data.set_sample(name, sample)
             logging.info('sample loaded on tape {} ({} blocks)'.format(path, name, self.data.get_sample_size(name)))
             
     def open(self, path):
         sample = Sample(path)
-        return sample.data
+        return sample.sample
                 
     def play(self, name):
-        Sample(self.data.get_sample(name)).play()
+        Sample(self.data.get_sample(name)).play(data=self.data)
 
     def apply(self, name, effect, *args):
         sample = Sample(self.data.get_sample(name))
         sample.apply(effect, *args)
-        self.data.set_sample(name, sample.data)
+        self.data.set_sample(name, sample.sample)
         logging.info('sample set on tape {} ({} blocks)'.format(name, self.data.get_sample_size(name)))
             
     def save(self, name, path):

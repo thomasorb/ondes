@@ -1,5 +1,8 @@
 import numpy as np
 import re
+import scipy.fft
+import hashlib
+import time
 
 def envelope(n, a, d, s, r):
     x = np.arange(n, dtype=float) / (n-1)
@@ -77,3 +80,35 @@ def read_msg(msg, n):
         index += durations[idur]
         if index >= n: break
     return arr
+
+def note2f(note, a_midikey):
+    return 440. / 2**(float(a_midikey - note) / 12.) / 2.
+
+def note2shift(note, basenote, a_midikey):
+    return max(note2f(basenote, a_midikey) / note2f(note, a_midikey), 1)
+
+def inverse_transform(X, note, basenote, a_midikey):
+    N = X.shape[0]
+    N = (N - N%2) * 2
+
+    shift = note2shift(note, basenote, a_midikey)
+    num = int(N * shift)
+    
+    num = scipy.fft.next_fast_len(num)
+    
+    # Inverse transform
+    norm = num /  float(N)
+    return np.ascontiguousarray(
+        scipy.fft.irfft(X, num, overwrite_x=True).real * norm).astype(np.float32)
+
+def get_hash():
+    hash = hashlib.sha1()
+    hash.update(str(time.time()).encode())
+    return np.array(list(hash.hexdigest()[:10].encode())).astype(np.int32)
+
+def get_note_name(note):
+    notes = ['C ', 'C#', 'D ', 'D#', 'E ', 'F ', 'F#', 'G ', 'G#', 'A ', 'A#', 'B ']    
+    return '{}{}'.format(notes[note%12], note//12)
+
+        
+

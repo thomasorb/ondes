@@ -3,7 +3,9 @@ import ctypes
 import multiprocessing.sharedctypes
 import multiprocessing as mp
 import logging
+
 from . import config
+from . import utils
 
 class BufferEmpty(Exception): pass
 
@@ -18,9 +20,8 @@ class Value(object):
             ctype = ctypes.c_int
             
         else: raise TypeError('unrecognized type: {}'.format(type(init)))
-            
-        self.val = multiprocessing.sharedctypes.Value(ctype, init, lock=True)            
-        
+
+        self.val = multiprocessing.sharedctypes.Value(ctype, init, lock=True)    
         
     def set(self, value):
         self.val.value = value
@@ -32,52 +33,77 @@ class Array(object):
 
     def __init__(self, init):
         assert isinstance(init, np.ndarray), 'init must be a numpy.ndarray'
+        self.is_complex = False
+
         if init.dtype == np.float32:
             ctype = ctypes.c_float
         elif init.dtype == np.uint16:
             ctype = ctypes.c_uint16
         elif init.dtype == np.bool:
             ctype = ctypes.c_bool
-        
+        elif init.dtype == np.int32:
+            ctype = ctypes.c_long
+        elif init.dtype == np.complex64:
+            ctype = ctypes.c_float
+            self.is_complex = True
         else: raise TypeError('unrecognized type: {}'.format(init.dtype))
-                    
-        self.val = multiprocessing.sharedctypes.Array(ctype, init.size, lock=True)
-        self.val[:] = init
+
+        if not self.is_complex:
+            self.val = multiprocessing.sharedctypes.Array(ctype, len(init), lock=True)
+            self.val[:] = init
         
-    def __setitem__(self, *args):
-        self.val.__setitem__(*args)
+        else:
+            self.val = (
+                multiprocessing.sharedctypes.Array(ctype, init.size, lock=True),
+                multiprocessing.sharedctypes.Array(ctype, init.size, lock=True))
+            self.val[0][:] = init.real
+            self.val[1][:] = init.imag
+           
+        
+    def __setitem__(self, item, value):
+        if not self.is_complex:
+            self.val.__setitem__(item, value)
+        else:
+            self.val[0].__setitem__(item, value.real)
+            self.val[1].__setitem__(item, value.imag)
+        
 
-    def __getitem__(self, *args):
-        return self.val.__getitem__(*args)
-
+    def __getitem__(self, item):
+        #if not self.is_complex:
+        return self.val.__getitem__(item)
+        #else:
+        #    raise NotImplementedError()
+            # ret = self.val[0].__getitem__(item).astype(config.COMPLEX_DTYPE)
+            # ret.imag = self.val[1].__getitem__(item)
+            # return ret
+        
     def __len__(self):
         return len(self.val)
-    
-class Data(object):
 
-    def __init__(self):
 
-        self.add_value('play', False)
-        self.add_value('tempo', config.TEMPO)
-        self.add_value('steps', config.STEPS)
-        for i in range(config.MAX_INSTRUMENTS):
-            self.add_array('score{}'.format(i), np.zeros(config.MAX_STEPS_PER_MEASURE,
-                                                         dtype=np.bool))
+
+class Buffer(object):
+
+    def __init__(self, data, name):
+        assert isinstance(data, Data)
+        self.data = data
+        self.name = name
+
         self.buffer_lock = mp.Lock()
-        self.add_array('bufferL', np.zeros(config.BLOCKSIZE * config.BUFFERSIZE, dtype=config.DTYPE))
-        self.add_array('bufferR', np.zeros(config.BLOCKSIZE * config.BUFFERSIZE, dtype=config.DTYPE))
-        self.add_value('next_read_block', 0)
-        self.add_value('next_write_block', 0)
-        self.add_value('buffer_counts', 0)
+        self.data.add_array('bufferL' + self.name, np.zeros(
+            config.BLOCKSIZE * config.BUFFERSIZE, dtype=config.DTYPE))
+        self.data.add_array('bufferR' + self.name, np.zeros(
+            config.BLOCKSIZE * config.BUFFERSIZE, dtype=config.DTYPE))
+        self.data.add_value('next_read_block' + self.name, 0)
+        self.data.add_value('next_write_block' + self.name, 0)
+        self.data.add_value('buffer_counts' + self.name, 0)
 
-        for isample in range(config.MAX_SAMPLES):
-            self.set_sample(
-                isample, np.zeros(
-                    (config.BLOCKSIZE * config.MAX_SAMPLE_LEN, 2),
-                    dtype=config.DTYPE),
-                config.BLOCKSIZE*4)
-
-
+        self.bufferL = self.data['bufferL' + self.name]
+        self.bufferR = self.data['bufferR' + self.name]
+        self.next_write_block = self.data['next_write_block' + self.name]
+        self.next_read_block = self.data['next_read_block' + self.name]
+        self.buffer_counts = self.data['buffer_counts' + self.name]
+        
     def buffer_is_full(self):
         if self.buffer_counts.get() >= config.BUFFERSIZE:
             return True
@@ -118,9 +144,67 @@ class Data(object):
             self.next_read_block.set(next_read)
             self.buffer_counts.set(self.buffer_counts.get() - 1)
             return buf
+    
 
-    def set_sample(self, name, data, length=None):
-        data = data.astype(config.DTYPE)
+class Data(object):
+
+    def __init__(self):
+
+        self.add_value('play', False)
+        self.add_value('tempo', config.TEMPO)
+        self.add_value('steps', config.STEPS)
+        for i in range(config.MAX_INSTRUMENTS):
+            self.add_array('track{}'.format(i), np.zeros(config.MAX_STEPS_PER_MEASURE,
+                                                         dtype=np.bool))
+        for i in range(config.MAX_SYNTHS): # notes
+            self.add_array('strack{}'.format(i), -np.ones(config.MAX_STEPS_PER_MEASURE,
+                                                          dtype=np.int32))
+        for i in range(config.MAX_SYNTHS): # durations (in steps)
+            self.add_array('strack{}d'.format(i), np.ones(config.MAX_STEPS_PER_MEASURE,
+                                                          dtype=np.int32))
+
+        self.buffers = dict()
+
+        # add buffer for sequencer
+        self.add_buffer('sequencer')
+        self.add_buffer('sampler')
+        self.add_buffer('synth')
+
+        
+        # add samples 
+        for isample in range(config.MAX_SAMPLES):
+            self.set_sample(
+                isample, np.zeros(
+                    (config.BLOCKSIZE * config.MAX_SAMPLE_LEN, 2),
+                    dtype=config.DTYPE),
+                length=config.BLOCKSIZE*4)
+
+        # downsampled function for each synth (same stuff as a sample)
+        for isynth in range(config.MAX_SYNTHS): 
+            self.set_sample(
+                's{}'.format(isynth), np.zeros(
+                    (config.BLOCKSIZE * config.MAX_SAMPLE_LEN, 2),
+                    dtype=config.COMPLEX_DTYPE),
+                length=config.BLOCKSIZE*4)
+
+        
+    def add_buffer(self, name):
+        self.buffers[name] = Buffer(self, name)
+
+    def buffer_is_full(self, name):
+        return self.buffers[name].buffer_is_full()
+    
+    def get_block(self, name):
+        return self.buffers[name].get_block()
+
+    def put_block(self, name, blockL, blockR):
+        return self.buffers[name].put_block(blockL, blockR)
+    
+    def set_sample(self, name, data, length=None, is_complex=False):
+        if is_complex: dtype = config.COMPLEX_DTYPE
+        else: dtype = config.DTYPE
+            
+        data = data.astype(dtype)
         if len(data)%config.BLOCKSIZE != 0:
             data = np.concatenate(
                 (data, np.zeros_like(data)[:config.BLOCKSIZE - len(data)%config.BLOCKSIZE,:]))
@@ -134,11 +218,13 @@ class Data(object):
             self.add_array(str(name) + 'L', data[:size,0])
             self.add_array(str(name) + 'R', data[:size,1])    
             self.add_value(str(name) + 'len', length)
+            self.add_array(str(name) + 'hash', utils.get_hash())
         else:
             self[str(name) + 'L'][:size] = data[:size,0]
             self[str(name) + 'R'][:size] = data[:size,1]
-            self[str(name) + 'len'].set(length)    
-
+            self[str(name) + 'len'].set(length)
+            self[str(name) + 'hash'][:] = utils.get_hash()
+            
     def get_sample_size(self, name):
         """Return size in buffers"""
         return int(self[str(name) + 'len'].get() // config.BLOCKSIZE)

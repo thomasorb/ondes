@@ -17,25 +17,32 @@ class Player(object):
         zerosdata = np.zeros((config.BLOCKSIZE, 2), dtype=config.DTYPE)
             
         def callback(outdata, frames, time, status):
-            assert frames == config.BLOCKSIZE
-            if status.output_underflow:
-                logging.warn('Output underflow: increase blocksize?')
-                data = zerosdata
-            #assert not status
-            if status:
-                data = zerosdata
-            else:
+
+            def get_block(name):
                 try:
-                    data = self.data.get_block()
+                    data = self.data.get_block(name)
                 except core.BufferEmpty:
                     #logging.warn('Buffer is empty: increase buffersize?')
-                    data = zerosdata
-
+                    data = np.copy(zerosdata)
                 try:
                     len(data)
                 except Exception as e:
                     logging.warn('data reading error: {}'.format(e))
-                    data = zerosdata
+                    data = np.copy(zerosdata)
+                return data
+
+            assert frames == config.BLOCKSIZE
+            if status.output_underflow:
+                logging.warn('Output underflow: increase blocksize?')
+                data = np.copy(zerosdata)
+            if status:
+                logging.warn('callback status')
+                data = np.copy(zerosdata)
+            else:
+                data = get_block('sequencer')
+                data += get_block('sampler')
+                data += get_block('synth')
+                
 
             assert data.shape == outdata.shape, 'data len must match'
             outdata[:] = data
