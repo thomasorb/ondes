@@ -44,6 +44,10 @@ def read_msg(msg, n):
         'ppp':1 # triple croche
     }
     arr = np.zeros(n, dtype=bool)
+
+    if 'end' in msg:
+        return arr
+    
     index = 0
     
     if 'x' in msg:
@@ -82,11 +86,16 @@ def read_msg(msg, n):
     return arr
 
 def read_synth_msg(msg, n):
+
+        
     renote = re.compile(r'[\dABCDEFG#?]+')
     
 
     arr = -np.ones(n, dtype=int)
     arrd = np.zeros(n, dtype=int)
+
+    if 'end' in msg:
+        return arr, arrd
     index = 0
 
     notestart = False
@@ -143,6 +152,13 @@ def note2f(note, a_midikey):
 
 def note2shift(note, basenote, a_midikey):
     return max(note2f(basenote, a_midikey) / note2f(note, a_midikey), 1)
+
+def sine(f, n, srate):
+    x = np.arange(n, dtype=np.float32) / srate
+    return np.cos(f * x * 2. * np.pi)
+
+def square(f, n, srate):
+    return np.sign(sine(f, n, srate))
 
 def inverse_transform(X, note, basenote, a_midikey):
     N = X.shape[0]

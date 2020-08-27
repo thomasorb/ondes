@@ -4,7 +4,7 @@ import os
 DEVICE = 'HDA Intel PCH: ALC293 Analog (hw:0,0)'
 
 BUFFERSIZE = 30 # number of blocks used for buffering
-BLOCKSIZE = 200#768 # block size
+BLOCKSIZE = 800#768 # block size
 SAMPLERATE = 44100
 DTYPE = np.float32
 COMPLEX_DTYPE = np.complex64
@@ -21,7 +21,7 @@ MAX_SYNTHS = 5
 
 SAMPLES_FOLDER = os.path.split(os.path.abspath(__file__))[0] + os.sep + 'samples' + os.sep
 
-
+VOLUME_ADJUST = 10.
 
 
 BASENOTE = 102

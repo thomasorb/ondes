@@ -2781,7 +2781,7 @@ static PyObject *__pyx_tp_new__memoryviewslice(PyTypeObject *t, PyObject *a, PyO
 static PyObject *__pyx_float_2_;
 static PyObject *__pyx_int_0;
 static PyObject *__pyx_int_1;
-static PyObject *__pyx_int_2000;
+static PyObject *__pyx_int_4000;
 static PyObject *__pyx_int_184977713;
 static PyObject *__pyx_int_222144456;
 static PyObject *__pyx_int_neg_1;
@@ -5963,7 +5963,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
  *     def __init__(self, str mode='sine', int dirty=500):
  *         self.indexL = 0             # <<<<<<<<<<<<<<
  *         self.indexR = 0
- *         self.Nbase = scipy.fft.next_fast_len(2000)
+ *         self.Nbase = scipy.fft.next_fast_len(4000)
  */
   __pyx_v_self->indexL = 0;
 
@@ -5971,7 +5971,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
  *     def __init__(self, str mode='sine', int dirty=500):
  *         self.indexL = 0
  *         self.indexR = 0             # <<<<<<<<<<<<<<
- *         self.Nbase = scipy.fft.next_fast_len(2000)
+ *         self.Nbase = scipy.fft.next_fast_len(4000)
  *         self.dirty = dirty
  */
   __pyx_v_self->indexR = 0;
@@ -5979,7 +5979,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
   /* "pulsar/ccore.pyx":214
  *         self.indexL = 0
  *         self.indexR = 0
- *         self.Nbase = scipy.fft.next_fast_len(2000)             # <<<<<<<<<<<<<<
+ *         self.Nbase = scipy.fft.next_fast_len(4000)             # <<<<<<<<<<<<<<
  *         self.dirty = dirty
  *         self.mode = mode
  */
@@ -6001,7 +6001,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
       __Pyx_DECREF_SET(__pyx_t_2, function);
     }
   }
-  __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_int_2000) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_int_2000);
+  __pyx_t_1 = (__pyx_t_3) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_3, __pyx_int_4000) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_int_4000);
   __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6012,7 +6012,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
 
   /* "pulsar/ccore.pyx":215
  *         self.indexR = 0
- *         self.Nbase = scipy.fft.next_fast_len(2000)
+ *         self.Nbase = scipy.fft.next_fast_len(4000)
  *         self.dirty = dirty             # <<<<<<<<<<<<<<
  *         self.mode = mode
  *         self.base_sampleL = self.compute_base_sample(True)
@@ -6020,7 +6020,7 @@ static int __pyx_pf_6pulsar_5ccore_4Wave___init__(struct __pyx_obj_6pulsar_5ccor
   __pyx_v_self->dirty = __pyx_v_dirty;
 
   /* "pulsar/ccore.pyx":216
- *         self.Nbase = scipy.fft.next_fast_len(2000)
+ *         self.Nbase = scipy.fft.next_fast_len(4000)
  *         self.dirty = dirty
  *         self.mode = mode             # <<<<<<<<<<<<<<
  *         self.base_sampleL = self.compute_base_sample(True)
@@ -24058,7 +24058,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitGlobals(void) {
   __pyx_float_2_ = PyFloat_FromDouble(2.); if (unlikely(!__pyx_float_2_)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_0 = PyInt_FromLong(0); if (unlikely(!__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_1 = PyInt_FromLong(1); if (unlikely(!__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __pyx_int_2000 = PyInt_FromLong(2000); if (unlikely(!__pyx_int_2000)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_4000 = PyInt_FromLong(4000); if (unlikely(!__pyx_int_4000)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_184977713 = PyInt_FromLong(184977713L); if (unlikely(!__pyx_int_184977713)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_222144456 = PyInt_FromLong(222144456L); if (unlikely(!__pyx_int_222144456)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_int_neg_1 = PyInt_FromLong(-1); if (unlikely(!__pyx_int_neg_1)) __PYX_ERR(0, 1, __pyx_L1_error)

@@ -18,6 +18,8 @@ class Sample(object):
                 path = config.SAMPLES_FOLDER + path
             with open(path, 'rb') as f:
                 sample, samplerate = sf.read(f)
+                sample /= config.VOLUME_ADJUST # volume adjust
+                sample = sample.astype(config.DTYPE)
                 if len(sample.shape) == 1:
                     sample = np.array([sample, sample]).T
                 if len(sample.shape) != 2:

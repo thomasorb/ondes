@@ -42,8 +42,9 @@ class Player(object):
                 data = get_block('sequencer')
                 data += get_block('sampler')
                 data += get_block('synth')
-                
 
+            data = data.astype(config.DTYPE)
+            
             assert data.shape == outdata.shape, 'data len must match'
             outdata[:] = data
 

@@ -19,9 +19,9 @@ class SampleIndex(object):
         self.length = int(length)
 
     def isfinished(self):
-        if self.index >= self.length - 1:
+        if self.index  >= self.length - 0:
             return True
-        return False
+        return False 
     
     def next(self):
         this_index = int(self.index)
@@ -49,7 +49,7 @@ class Track(object):
             msg = utils.read_msg(msg, self.data.steps.get())
         elif not isinstance(msg, np.ndarray):
             raise Exception('bad msg type')
-        self.set(msg)
+        self.set(msg) 
 
     def __repr__(self):
         track = self.get()
@@ -158,7 +158,7 @@ class Sequencer(object):
         for isynth in range(config.MAX_SYNTHS):
             self.synths.append(synth.Synth(isynth, self.data))
 
-        self.last_step_time = 0#time.time()
+        self.last_step_time = 0
         while True:
             # if paused
             if not self.data.play.get():
@@ -194,7 +194,7 @@ class Sequencer(object):
                         self.data.set_sample(iindex, isynth_sample)
                         try:
                             self.samples.append(SampleIndex(
-                                iindex, len(isynth_sample)))
+                                iindex, int(len(isynth_sample) // config.BLOCKSIZE)))
                         except AttributeError:
                             logging.warn('synth {} get sample error'.format(inst))
                             

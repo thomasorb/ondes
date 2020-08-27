@@ -211,7 +211,7 @@ cdef class Wave(object):
     def __init__(self, str mode='sine', int dirty=500):
         self.indexL = 0
         self.indexR = 0
-        self.Nbase = scipy.fft.next_fast_len(2000)
+        self.Nbase = scipy.fft.next_fast_len(4000)
         self.dirty = dirty
         self.mode = mode
         self.base_sampleL = self.compute_base_sample(True)
