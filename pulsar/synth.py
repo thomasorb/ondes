@@ -12,16 +12,21 @@ from . import effects
 
 class Wave(object):
 
-    def __init__(self, mode='sine', dirty=300, fft=False):
+    def __init__(self, mode='sine', dirty=300, fft=False, spectrumLR=None):
         if fft:
-            self.wave = ccore.Wave(mode=str(mode), dirty=int(dirty))
+            if mode != 'spectrum':
+                wave = ccore.Wave(mode=str(mode), dirty=int(dirty))
 
-            # get base sample
-            base = np.array(self.wave.get_base_samples()).T
+                # get base sample
+                base = np.array(wave.get_base_samples()).T
+            else:
+                base = spectrumLR
             
             # downsample it to the 0 note
             sampleL = utils.inverse_transform(base[:,0], 0, config.BASENOTE, config.A_MIDIKEY).real
             sampleR = utils.inverse_transform(base[:,1], 0, config.BASENOTE, config.A_MIDIKEY).real
+
+            sampleL, sampleR = self.special_treatment(sampleL, sampleR)
 
         else:
             if mode == 'sine':
@@ -43,16 +48,33 @@ class Wave(object):
         sample /= config.VOLUME_ADJUST
         self.downsample = sample
 
+    @staticmethod
+    def special_treatment(sampleL, sampleR):
+        return sampleL, sampleR
+    
     def apply(self, effect, *args):
         sample = getattr(effects, effect)(self.downsample, *args)
         if len(sample)%2:
             sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
         self.downsample = sample
 
+class CubeWave(Wave):
 
+    def __init__(self, cube, ix, iy, r, zmin, zmax, loops=1, deriv=2):
+        
+        sitelle.extractwave() # must be implemeted
+        
+        
+        super().__init__(mode='spectrum', fft=True, spectrumLR=spectrumLR)
+
+    @staticmethod
+    def special_treatment(sampleL, sampleR):
+        # must be reimplemented
+        return sampleL, sampleR
+    
 class Synth(object):
 
-    def __init__(self, name, data, mode='sine', dirty=300, fft=False):
+    def __init__(self, name, data, mode='sine', dirty=300, fft=True):
         
         assert isinstance(data, core.Data)
         self.data = data
@@ -63,7 +85,7 @@ class Synth(object):
             wave = Wave(mode=mode, dirty=dirty)
             self.replace(wave)
             self._hash = self.data[self.name + 'hash'][:]
-        
+
     def get_samples(self, note, duration):
         """
         :param duration: in steps
@@ -126,3 +148,4 @@ class Synth(object):
 
         self.data.set_sample(self.name, np.copy(self.downsample))
         self._hash = self.data[self.name + 'hash'][:]
+

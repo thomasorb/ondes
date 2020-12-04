@@ -10,6 +10,16 @@ from . import config
 
 from . import effects
 
+class Effect(object):
+    
+    def __init__(self, name, data):
+        self.data = data
+        self.effect = getattr(effects, name)
+        
+    def __call__(self, *args):
+        return Sample(self.effect(self.data, *args))
+
+
 class Sample(object):
 
     def __init__(self, path):
@@ -18,7 +28,7 @@ class Sample(object):
                 path = config.SAMPLES_FOLDER + path
             with open(path, 'rb') as f:
                 sample, samplerate = sf.read(f)
-                sample /= config.VOLUME_ADJUST # volume adjust
+                #sample /= config.VOLUME_ADJUST # volume adjust
                 sample = sample.astype(config.DTYPE)
                 if len(sample.shape) == 1:
                     sample = np.array([sample, sample]).T
@@ -26,29 +36,53 @@ class Sample(object):
                     raise Exception('bad sample format: {}'.format(sample.shape))
                 if sample.shape[1] != 2:
                     raise Exception('bad sample format: {}'.format(sample.shape))
-            if len(sample)%2:
-                sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+
+            
+            #if len(sample)%2:
+            #    sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+            sample = effects.cut_to_blocksize(sample, config.BLOCKSIZE)
                 
             self.sample = sample
         elif isinstance(path, np.ndarray):
-            self.sample = path
+            if len(path.shape) == 1:
+                path = np.array((path, path)).T
+            sample = effects.cut_to_blocksize(path, config.BLOCKSIZE)
+            
+            self.sample = sample
         else:
             raise Exception('unknown sample')
-                    
-    def play(self, data=None):
+
+
+    def __len__(self):
+        return len(self.sample)
+    
+    def play(self, data=None, duration=None):
+        sample = self.sample
+        if duration is not None:
+            new_size = duration * config.SAMPLERATE
+            if len(sample) > new_size:
+                sample = np.copy(sample)
+                sample = sample[:new_size, :]
+                sample = effects.cut_to_blocksize(sample, config.BLOCKSIZE)
+                
         if data is None:
-            sd.play(self.sample, config.SAMPLERATE, device=config.DEVICE, blocking=False)
+            sd.play(sample, config.SAMPLERATE, device=config.DEVICE, blocking=True)
         else:
-            core.play_on_buffer('sampler', data, self.sample)                
+            core.play_on_buffer('sampler', data, sample)
 
     def apply(self, effect, *args):
         sample = getattr(effects, effect)(self.sample, *args)
-        if len(sample)%2:
-            sample = np.concatenate((sample, np.zeros((1, sample.shape[1]), dtype=sample.dtype)))
+        sample = effects.cut_to_blocksize(sample, config.BLOCKSIZE)
         self.sample = sample
             
     def save(self, path):
         sf.write(path, self.sample, config.SAMPLERATE)
+
+    def copy(self):
+        return self.__class__(np.copy(self.sample))
+
+    def __getattr__(self, effect):
+        return Effect(effect, self.sample)
         
 
 class Sampler(object):

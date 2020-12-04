@@ -4,6 +4,15 @@ import scipy.fft
 import hashlib
 import time
 
+def fastinterp1d(a, x):
+    assert np.all((0 <= x)  * (x <= len(a) - 1))
+    xint = np.copy(x).astype(int)
+    alow = a[xint]
+    xint_high = xint + 1
+    xint_high[xint + 1 >= len(a) - 1] = len(a) - 1
+    ahigh = a[xint_high]
+    return alow + (ahigh - alow) * (x - xint)
+
 def envelope(n, a, d, s, r):
     x = np.arange(n, dtype=float) / (n-1)
     env = np.ones_like(x)
@@ -134,7 +143,6 @@ def read_synth_msg(msg, n):
                 inote += c
                 i += 1
             arr[last_note_index] = get_note_value(inote)
-            print(inote)
                         
         else:
             raise Exception('bad msg formatting')
@@ -191,3 +199,63 @@ def get_note_value(note):
     octave = int(reoct.findall(note)[0])
     note = renote.findall(note)[0]
     return octave*12 + notes.index(note)
+
+def innerpad(a, n):
+    assert n >= 2*a.shape[-1]
+    inn_shape = list(a.shape)
+    inn_shape[-1] = n
+    inn = np.zeros(inn_shape, dtype=a.dtype)
+    x = np.arange(0, n, n//a.shape[-1])[:a.shape[-1]]
+    inn[..., x] = a[..., :x.size]
+    return inn
+
+def spec2sample(spec, duration, samplerate, minfreq=None, maxfreq=None, reso=1):
+
+    length = int(duration * samplerate)
+    assert length >= 2 * spec.size
+    freqstep = samplerate / length / 2
+    
+    endfreq = freqstep * (length - 1)
+    
+    if minfreq is None: minfreq = 0
+    minpix = minfreq / freqstep
+    
+    if maxfreq is not None:
+        assert maxfreq <= endfreq
+        assert maxfreq > minfreq
+        maxpix = maxfreq / freqstep
+        assert maxpix - minpix >= 2 * spec.size
+    else:
+        maxpix = minpix + spec.size
+        
+    def transform(spec):
+        sign = np.sign(spec)
+        spec = np.abs(spec)
+        spec -= np.percentile(spec, 1)
+        spec /= np.percentile(spec, 99.9)
+        spec = np.clip(spec, 0, 1)
+        spec = spec**reso
+        spec *= sign
+        #spec = orb.utils.vector.smooth(spec, 2)
+        return spec
+    
+    
+    spec.real = transform(spec.real)
+    spec.imag = transform(spec.imag)
+
+    
+    
+    if maxfreq is not None:
+        padded_size = int(maxpix - minpix)
+        spec = innerpad(spec, padded_size)
+        
+    padl = int(minpix)
+    padr = int(length - minpix - spec.size)# + length
+    
+    spec = np.pad(spec, ((padl, padr)))
+    
+    specfft = scipy.fft.fft(spec)
+    sample = np.array([specfft.real[:],
+                       specfft.imag[:]]).T
+    
+    return sample

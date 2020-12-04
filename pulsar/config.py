@@ -1,7 +1,8 @@
 import numpy as np
 import os
 
-DEVICE = 'HDA Intel PCH: ALC293 Analog (hw:0,0)'
+#DEVICE = 'HDA Intel PCH: ALC293 Analog (hw:0,0)'
+DEVICE = 'default'
 
 BUFFERSIZE = 30 # number of blocks used for buffering
 BLOCKSIZE = 800#768 # block size
@@ -14,7 +15,7 @@ TEMPO = 84
 BEATS = 4 # number of beats per measure (this is only used to compute tempo, and must not be changed)
 STEPS = 32 # number of steps per measure, 32 means that 1 step = 1 triple croche
 MAX_SAMPLES = 50 # samples + max notes played per synth
-MAX_SAMPLE_LEN = int(2 * SAMPLERATE / BLOCKSIZE) # in buffers
+MAX_SAMPLE_LEN = int(16 * SAMPLERATE / BLOCKSIZE) # in buffers
 MAX_STEPS_PER_MEASURE = 64
 MAX_INSTRUMENTS = 8
 MAX_SYNTHS = 5
@@ -22,8 +23,6 @@ MAX_SYNTHS = 5
 SAMPLES_FOLDER = os.path.split(os.path.abspath(__file__))[0] + os.sep + 'samples' + os.sep
 
 VOLUME_ADJUST = 10.
-
-
 BASENOTE = 102
 A_MIDIKEY = 45
 
