@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import os
 import time
+import traceback
 
 from . import core
 from . import config
@@ -59,14 +60,27 @@ class Sample(object):
     def play(self, data=None, duration=None):
         sample = self.sample
         if duration is not None:
-            new_size = duration * config.SAMPLERATE
+            new_size = int(duration * config.SAMPLERATE)
             if len(sample) > new_size:
                 sample = np.copy(sample)
                 sample = sample[:new_size, :]
                 sample = effects.cut_to_blocksize(sample, config.BLOCKSIZE)
                 
         if data is None:
-            sd.play(sample, config.SAMPLERATE, device=config.DEVICE, blocking=True)
+            import multiprocessing as mp
+            def sd_play_sample(sample, srate, device):
+                try:
+                    sd.play(sample, srate, device=device, 
+                            never_drop_input=False, blocksize=2048)
+                    sd.wait()
+                except:
+                    print('error when playing sample')
+                    traceback.print_exc(5)
+                    
+            proc = mp.Process(name='play', target=sd_play_sample, args=(
+                sample, config.SAMPLERATE, config.DEVICE))
+            proc.start()
+            
         else:
             core.play_on_buffer('sampler', data, sample)
 

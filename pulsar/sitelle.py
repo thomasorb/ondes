@@ -1,4 +1,5 @@
 import numpy as np
+import traceback
 
 from . import utils
 from . import config
@@ -25,11 +26,22 @@ class Param(object):
         self.vmax = self.cast(vmax)
         self.val = self.cast(val)
         self.step = self.cast(step)
-
+        self.widget = None
+        self.fig = None
+        
     def set(self, val):
         self.val = self.cast(np.clip(val, self.vmin, self.vmax))
         
-
+    def toggle(self, event):
+        self.val = not bool(self.val)
+        if self.val:
+            self.widget.ax.set_facecolor('tab:green')
+            self.widget.color = 'tab:green'
+        else:
+            self.widget.ax.set_facecolor('tab:orange')
+            self.widget.color = 'tab:orange'
+        self.fig.canvas.draw_idle()
+            
     def __call__(self):
         return self.cast(self.val)
 
@@ -40,21 +52,23 @@ class Cube(orb.cube.SpectralCube):
         super().__init__(*args, **kwargs)
 
         zmin, zmax = self.get_filter_range_pix(border_ratio=0.05).astype(int)
-        zmin, zmax = 500, 1200 ## HACK !!!!
         p = {
+            'perc':Param(99., 95., 100., 0.05, cast=float),
             'depth':Param(1, 1, 10, 1),
-            'loops':Param(1, 1, 10, 1),
             'deriv':Param(5, 1, 10, 1),
             'r':Param(10, 1, 30, 1),
             'zmin':Param(zmin, zmin-100, zmin+100, 1),
             'zmax':Param(zmax, zmax-100, zmax+100, 1),
-            'note':Param(0, 0, 127, 1),
-            'perc':Param(99., 95., 100., 0.05, cast=float),
             'reso':Param(2, 0.5, 30, 0.1, cast=float),
+            'innerpad':Param(True, False, True, None, cast=bool),
             'fmin':Param(0, 0, 5000, 10, cast=float),
-            'fmax':Param(300, 200, 5000, 10, cast=float),
-            'volume':Param(-1., -2, 1, 0.01, cast=float),
+            'frange':Param(500, 200, 5000, 10, cast=float),
+            'volume':Param(-2., -4, 1, 0.01, cast=float),
             'duration':Param(3., 1, 30, 0.1, cast=float),
+            'loops':Param(1, 1, 10, 1),
+            'spectrum_roll':Param(0, -1, 1, 0.01, cast=float),
+            'sample_roll':Param(0, -1, 1, 0.01, cast=int),
+            'note':Param(64, 0, 127, 1),
         }
         self.p = orb.core.Params(p)
         
@@ -66,36 +80,7 @@ class Cube(orb.cube.SpectralCube):
         self.base_norm_i = np.nanpercentile(self.ref_spectrum.imag, 99.9)
         self.last_spectrum = None
         self.last_sample = None
-        
-        
-        
-    # def get_sample(self, ix, iy, asarr=False):
-    #     rx, ry = np.random.randint(-self.p.deriv(), self.p.deriv(), 2)
-        
-    #     sampleL = self.extract_sample(ix, iy)
-    #     sampleR = self.extract_sample(ix, iy)
-    #     sample = np.array((sampleL, sampleR)).T
-    #     sample = effects.cut_to_blocksize(sample, config.BLOCKSIZE)
-    #     if asarr:
-    #         return sample
-    #     else:
-    #         return sampler.Sample(sample)
-    
-
-    # def get_samples(self, ix, iy, asarr=False):
-    #     dataLR = list()
-    #     for iloop in range(self.p.loops()):
-    #         spec = self.get_sample(ix, iy, asarr=True)
-    #         dataLR.append(spec)
-            
-    #     dataLR = np.concatenate(dataLR)
-    #     dataLR = effects.cut_to_blocksize(dataLR, config.BLOCKSIZE)
-
-    #     if asarr:
-    #         return dataLR
-    #     else:
-    #         return sampler.Sample(dataLR)
-            
+                    
     def extract_spectrum(self, ix, iy):
         ix = int(ix)
         iy = int(iy)
@@ -117,52 +102,49 @@ class Cube(orb.cube.SpectralCube):
         data = np.concatenate(data)
         return data
 
-    # def extract_sample(self, ix, iy):
-    #     def special_treatment(interf):
-    #         interf -= np.mean(interf)
-
-    #         interf /= np.nanpercentile(interf, 99.95)
-    #         interf = np.clip(interf, -1, 1)
-    #         interf /= 2.
-
-    #         #interf = np.concatenate((interf[interf.size//2:], interf[:interf.size//2]))
-    #         interf = interf[interf.size//5:interf.size//3]
-    #         return interf
-
-    #     spectrum = self.extract_spectrum(ix, iy)
-    #     self.last_spectrum = np.copy(spectrum)
-    #     sample = utils.inverse_transform(spectrum, 10, config.BASENOTE, config.A_MIDIKEY).real
-    #     sample = special_treatment(sample)
-    #     self.last_sample = np.copy(sample)
-    #     return sample
-
 
     def show(self):
 
         def redraw_plot(ax, data, title, log=False, xlim=None):
+            if data.size > 1e6:
+                data = data[::int(data.size//1e6),...]
             ax.cla()
             ax.plot(data, c='gray', label=title)
             if xlim is not None:
                 ax.set_xlim(xlim)
             if log:
                 ax.set_xscale('log')
-            ax.legend()
+            ax.legend(loc='upper left')
             ax.axis('off')
 
         def compute_effects():
-            print(self.p.fmin())
-            print(self.p.fmax())
-            print(self.last_spectrum.shape)
+            spectrum = np.copy(self.last_spectrum)
+            spectrum = np.roll(spectrum, int(spectrum.shape[0] * self.p.spectrum_roll()))
+            self.spectrum_to_show = np.copy(utils.normalize_spectrum(spectrum.real, self.p.reso()))
+            if self.p.innerpad():
+                maxfreq = self.p.fmin() + self.p.frange()
+            else:
+                maxfreq = None
             sample = utils.spec2sample(
-                self.last_spectrum * 10**(self.p.volume()),
+                spectrum,
                 self.p.duration(),
                 config.SAMPLERATE,
                 minfreq=self.p.fmin(),
-                maxfreq=self.p.fmax(),
+                maxfreq=maxfreq,
                 reso=self.p.reso())
-            self.last_sample = np.copy(sample)
+            sample *= 10**(self.p.volume())
+            sample = np.roll(sample, int(sample.shape[0] * self.p.sample_roll()))
+            if self.p.loops() > 1:
+                sample = np.concatenate(list([sample],) * self.p.loops(), axis=0)
             
-            return sampler.Sample(sample)
+            sample = sampler.Sample(sample)
+            sample = sample.shift(self.p.note() - 64)
+            
+            
+            
+            self.last_sample = np.copy(sample.sample)
+            redraw_plots()
+            return sample
 
         def onclick(event):
             if event.inaxes not in [self.image_ax]:
@@ -171,32 +153,32 @@ class Cube(orb.cube.SpectralCube):
             self.last_spectrum = self.extract_spectrum(event.xdata, event.ydata)
             
             self.spectrum_ax.cla()
-            compute_effects().play(duration=5)
-
-            redraw_plot(self.spectrum_ax, self.last_spectrum.real, 'spectrum')
-            np.save('last_spectrum.npy', self.last_spectrum)
+            compute_effects().play(duration=self.p.duration())
+            
+            
+        def redraw_plots():
+            redraw_plot(self.spectrum_ax, self.spectrum_to_show, 'spectrum')
             redraw_plot(self.sample_ax, self.last_sample, 'sample')
-
             powerspec = np.abs(scipy.fft.fft(self.last_sample))
-            #freq = scipy.fft.fftfreq(self.last_sample.size, 1/config.SAMPLERATE)
-            #pl.plot(freq[:fft.size//2], )
-            #pl.xlim
-            #pl.xscale('log')
-            redraw_plot(self.power_ax, powerspec[:powerspec.size//2], 'sample', xlim=(20, 20000), log=True)
+            redraw_plot(self.power_ax, powerspec[:powerspec.size//2],
+                        'power spectrum', xlim=(20, 20000), log=True)
             self.imfig.canvas.draw()
 
         def play_sample(event):
             try:
-                compute_effects().play()
+                compute_effects().play(duration=self.p.duration())
                 
             except Exception as e:
-                print(e)
+                print('error when playing')
+                traceback.print_exc(limit=5)
+                
     
         def save_sample(event):
             try:
                 compute_effects().save(self.path + '.wav')
             except Exception as e:
-                print(e)
+                print('error when saving')
+                traceback.print_exc(limit=5)
 
         def change_path(path):
             self.path = str(path)
@@ -229,24 +211,31 @@ class Cube(orb.cube.SpectralCube):
         index += SPECSIZE
         self.power_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,:])
         
-        redraw_plot(self.sample_ax, np.arange(self.p.zmin(), self.p.zmax()), 'sample')
-        redraw_plot(self.spectrum_ax, np.arange(self.p.zmin(), self.p.zmax()), 'spectrum')
-        redraw_plot(self.power_ax, np.arange(self.p.zmin(), self.p.zmax()), 'power')
+        redraw_plot(self.sample_ax, np.zeros(self.p.zmax() - self.p.zmin()), 'sample')
+        redraw_plot(self.spectrum_ax, np.zeros(self.p.zmax() - self.p.zmin()), 'spectrum')
+        redraw_plot(self.power_ax, np.zeros(self.p.zmax() - self.p.zmin()), 'power')
 
 
         self.parfig = pl.figure(figsize=(4,4))
         gs = matplotlib.gridspec.GridSpec(max(GRIDSIZE, len(self.p) + 4*BUTTSIZE), GRIDSIZE, wspace=1, hspace=0)
         
         index = 0
-        self.sliders = list()
         for ip in self.p:
-            islider = Slider(self.parfig.add_subplot(gs[index,:]),
-                           ip, self.p[ip].vmin,
-                           self.p[ip].vmax,
-                           valinit=self.p[ip](),
-                           valstep=self.p[ip].step)
-            islider.on_changed(self.p[ip].set)
-            self.sliders.append(islider)
+            if self.p[ip].cast != bool:
+                islider = Slider(self.parfig.add_subplot(gs[index,:]),
+                               ip, self.p[ip].vmin,
+                               self.p[ip].vmax,
+                               valinit=self.p[ip](),
+                               valstep=self.p[ip].step)
+                islider.on_changed(self.p[ip].set)
+                self.p[ip].widget = islider
+            else:
+                # create button :
+                ibutton = Button(self.parfig.add_subplot(gs[index:index+BUTTSIZE,:]), ip)
+                ibutton.on_clicked(self.p[ip].toggle)
+                self.p[ip].widget = ibutton
+            self.p[ip].fig = self.parfig
+        
             index += 1
 
         self.button_play = Button(self.parfig.add_subplot(gs[index:index+BUTTSIZE,:]),

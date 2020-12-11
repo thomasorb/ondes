@@ -228,20 +228,10 @@ def spec2sample(spec, duration, samplerate, minfreq=None, maxfreq=None, reso=1):
     else:
         maxpix = minpix + spec.size
         
-    def transform(spec):
-        sign = np.sign(spec)
-        spec = np.abs(spec)
-        spec -= np.percentile(spec, 1)
-        spec /= np.percentile(spec, 99.9)
-        spec = np.clip(spec, 0, 1)
-        spec = spec**reso
-        spec *= sign
-        #spec = orb.utils.vector.smooth(spec, 2)
-        return spec
     
     
-    spec.real = transform(spec.real)
-    spec.imag = transform(spec.imag)
+    spec.real = normalize_spectrum(spec.real, reso)
+    spec.imag = normalize_spectrum(spec.imag, reso)
 
     
     
@@ -259,3 +249,14 @@ def spec2sample(spec, duration, samplerate, minfreq=None, maxfreq=None, reso=1):
                        specfft.imag[:]]).T
     
     return sample
+
+def normalize_spectrum(spec, reso):
+    sign = np.sign(spec)
+    spec = np.abs(spec)
+    spec -= np.percentile(spec, 1)
+    spec /= np.percentile(spec, 99.9)
+    spec = np.clip(spec, 0, 1)
+    spec = spec**reso
+    spec *= sign
+    #spec = orb.utils.vector.smooth(spec, 2)
+    return spec
