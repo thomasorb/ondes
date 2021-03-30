@@ -1,0 +1,7 @@
+import orb.cube
+
+cube = orb.cube.SpectralCube('/home/thomas/MEDIA/Crabnebula_SN3.merged.cm1.1.0.hdf5')
+
+zrange = cube.get_filter_range_pix(border_ratio=0.05).astype(int)
+print(zrange)
+/for i in range()

@@ -15,16 +15,16 @@ with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     
 extensions = [
  Extension(
-     "pulsar.ccore",
+     "ondes.ccore",
      [
-         "pulsar/ccore.pyx"
+         "ondes/ccore.pyx"
      ],
      include_dirs=[numpy.get_include()]
  ),
 ]
 
 setup(
-    name='pulsar',
+    name='ondes',
     ext_modules=cythonize(extensions, annotate=True),
     version='1.0',
     url='https://myurl.com',
@@ -41,10 +41,10 @@ setup(
     include_package_data=True,
     package_data={
         '':['LICENSE.txt', '*.rst', '*.txt', 'docs/*', '*.pyx'],
-        'pulsar':['data/*', '*.pyx']},
+        'ondes':['data/*', '*.pyx']},
     exclude_package_data={
-        '': ['*~', '*.so', '*.pyc', '*.c', 'orb/cgvar.c'],
-        'pulsar':['*~', '*.so', '*.pyc', '*.c']},
+        '': ['*~', '*.so', '*.pyc', '*.c'],
+        'ondes':['*~', '*.so', '*.pyc', '*.c']},
     platforms='any',
     scripts=[],
     classifiers = [

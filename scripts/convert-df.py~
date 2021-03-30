@@ -1,0 +1,7 @@
+import orb.utils.io as io
+import numpy as np
+
+df = io.read_fits('m1.final.deep_frame.wcs.ok.fits')
+np.save('df.npy')
+
+

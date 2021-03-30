@@ -1,0 +1,98 @@
+import numpy as np
+import pylab as pl
+import matplotlib.gridspec
+import scipy.fft
+import time
+
+from . import core
+
+class CubeDisplay(object):
+
+    def __init__(self, data, dfpath):
+
+        assert isinstance(data, core.Data)
+        self.data = data
+        self.name = 's0'
+
+        GRIDSIZE = 10 #must be even
+        SPECSIZE = 3
+        
+        self.df = np.load(dfpath).real
+        
+        pl.ion()
+        self.imfig = pl.figure(figsize=(8,10))
+        gs = matplotlib.gridspec.GridSpec(GRIDSIZE, 2*GRIDSIZE, wspace=1, hspace=0)
+        
+        self.image_ax = self.imfig.add_subplot(gs[:, 0:GRIDSIZE])
+        
+        self.redraw_image(None)
+        index = 0
+        self.sample_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        index += SPECSIZE
+        self.spectrum_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        index += SPECSIZE
+        self.power_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        
+        self.sample = None
+        self.spectrum = None
+        self.spectrum_ax.plot(np.zeros(100))
+        self.sample_ax.plot(np.zeros(100))
+        self.power_ax.plot(np.zeros(100))
+        
+        self.imfig.show()
+        
+        while True:
+            self.spectrum = self.data['display_spectrum'][:self.data['display_spectrum_len'].get()]
+            self.sample = self.data['display_sample'][:self.data['display_sample_len'].get()]
+            
+            self.redraw_plots()
+            
+            self.imfig.canvas.flush_events()
+            time.sleep(0.1)
+            
+            
+
+    def onclick(self, event):
+        if event.inaxes not in [self.image_ax]:
+            return
+
+        #self.last_spectrum = self.extract_spectrum(int(event.xdata), int(event.ydata))
+        
+        self.spectrum_ax.cla()
+        #compute_effects().play(duration=self.p.duration())
+        
+        
+    def redraw_plot(self, ax, data, title, log=False, xlim=None):
+        ax.cla()
+        ax.plot(data, c='gray', label=title)
+        ax.lines[0].set_data(np.arange(np.size(data)), data) # set plot data
+        ax.relim()                  # recompute the data limits
+        ax.autoscale_view()         # automatic axis scaling
+        if xlim is not None:
+            ax.set_xlim(xlim)
+        if log:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
+        ax.legend(loc='upper left')
+        ax.axis('off')
+
+    def redraw_plots(self):
+        if self.spectrum is not None:
+            self.redraw_plot(self.spectrum_ax, self.spectrum, 'spectrum')
+        if self.sample is not None:
+            self.redraw_plot(self.sample_ax, self.sample, 'sample')
+            powerspec = np.abs(scipy.fft.fft(self.sample))
+            self.redraw_plot(self.power_ax, powerspec[:powerspec.size//2],
+                        'power spectrum', xlim=(20, 20000), log=True)
+        
+
+    def redraw_image(self, event):
+        PERC = 95
+
+        self.image_ax.cla()
+        vmin, vmax = np.nanpercentile(self.df, [30, PERC])
+        self.image_ax.imshow(self.df.T, vmin=vmin, vmax=vmax, origin='lower', interpolation='nearest',
+                             cmap='hot')
+        self.image_ax.axis('off')
+        cid = self.imfig.canvas.mpl_connect('button_press_event', self.onclick)
+        
