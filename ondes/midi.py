@@ -65,6 +65,36 @@ class KeySampler(object):
                 self.stopped = True
         
         return sampling_vector.astype(config.DTYPE), envelope * self.volume
+
+
+class SynthData(object):
+
+    def __init__(self, data, index):
+        assert isinstance(data, core.Data)
+        self.data = data
+
+        self.index = int(index)
+        self.name = 's{}'.format(index)
+
+        self.length = self.data.samples[self.name].get_len()
+        self.sample_hash = self.data.samples[self.name].get_hash()
+        self.sample = self.data.samples[self.name].get_sample().astype(config.DTYPE)
+        self.old_sample = np.copy(self.sample)
+        self.transit_start = time.time()
+        self.samples_counter = 0
+
+    def update(self):
+        new_hash = self.data.samples[self.name].get_hash()
+        if new_hash != self.sample_hash:
+            self.sample_hash = self.data.samples[self.name].get_hash()
+            self.old_sample = np.copy(self.sample)
+            self.sample = self.data.samples[self.name].get_sample().astype(config.DTYPE)
+            self.transit_start = int(self.samples_counter)
+            return True
+        else:
+            return False
+            
+        
         
 class Keyboard(object):
     
@@ -77,14 +107,11 @@ class Keyboard(object):
         # eventually the synth will be changing the sample from the x, y inputs
         # the Keyboard is only seeing the sample and samples into it
         time.sleep(0.5)
-        
-        self.length = self.data.samples['s0'].get_len()
-        self.sample_hash = self.data.samples['s0'].get_hash()
-        self.sample = self.data.samples['s0'].get_sample().astype(config.DTYPE)
-        self.old_sample = np.copy(self.sample)
-        self.transit_start = time.time()
-        self.samples_counter = 0
-                
+
+        self.synths = list()
+        for i in range(config.MAX_SYNTHS):
+            self.synths.append(SynthData(data, i))
+            
         self.keys = list()
 
         self.inport = mido.open_input(self.get_device())
@@ -94,19 +121,20 @@ class Keyboard(object):
             stime = time.time()
             
             new_hash = self.data.samples['s0'].get_hash()
-            if new_hash != self.sample_hash:
-                self.sample_hash = self.data.samples['s0'].get_hash()
-                self.old_sample = np.copy(self.sample)
-                self.sample = self.data.samples['s0'].get_sample().astype(config.DTYPE)
-                self.transit_start = int(self.samples_counter)
-                
-            else:
+
+            updating = False
+            for i in range(config.MAX_SYNTHS):
+                if self.synths[i].update():
+                    updating = True
+                    
+            if not updating:
                 time.sleep(config.SLEEPTIME)
                 self.clean_keys()
             
             for msg in self.inport.iter_pending():
                 if msg.type == 'note_on':
-                    self.keys.append(KeySampler(self.data, msg.note, msg.velocity, self.length))
+                    self.keys.append(KeySampler(self.data, msg.note, msg.velocity,
+                                                self.synths[0].length))
                     last_note = msg.note
                     
                 elif msg.type == 'note_off':
@@ -131,10 +159,9 @@ class Keyboard(object):
                     logging.warn('error at put block {}'.format(e))
                     pass
                 finally:
-                    self.samples_counter += config.BLOCKSIZE
-        
-
-                
+                    for i in range(config.MAX_SYNTHS):
+                        self.synths[i].samples_counter += config.BLOCKSIZE
+                        
             self.data.timing_buffers['keyboard_loop_time'].put(time.time() - stime)
         self.inport.close()
                 
@@ -148,10 +175,6 @@ class Keyboard(object):
 
         all_finished = True
 
-        trans = np.clip((np.arange(config.BLOCKSIZE)
-                        + self.samples_counter
-                        - self.transit_start) / config.TRANSIT_TIME, 0, 1)
-
         new = np.empty_like(blockL, dtype=complex)
         old = np.empty_like(blockL, dtype=complex)
                 
@@ -159,23 +182,31 @@ class Keyboard(object):
             if not ikey.stopped:
                 all_finished = False
                 sfunc, env = ikey.get_next()
-                oldL = ccore.fast_interp1d(np.copy(self.old_sample[:,0]), sfunc.copy())
-                newL = ccore.fast_interp1d(np.copy(self.sample[:,0]), sfunc.copy()) 
-                oldR = ccore.fast_interp1d(np.copy(self.old_sample[:,1]), sfunc.copy()) 
-                newR = ccore.fast_interp1d(np.copy(self.sample[:,1]), sfunc.copy())
+                for i in range(config.MAX_SYNTHS):
+                    
+                    trans = np.clip((np.arange(config.BLOCKSIZE)
+                        + self.synths[i].samples_counter
+                        - self.synths[i].transit_start) / config.TRANSIT_TIME, 0, 1)
 
-                # morphing
-                new.real = newL * env
-                new.imag = newR * env
-                old.real = oldL * env
-                old.imag = oldR * env
+        
+                    oldL = ccore.fast_interp1d(np.copy(self.synths[i].old_sample[:,0]), sfunc.copy())
+                    newL = ccore.fast_interp1d(np.copy(self.synths[i].sample[:,0]), sfunc.copy()) 
+                    oldR = ccore.fast_interp1d(np.copy(self.synths[i].old_sample[:,1]), sfunc.copy())
+                    newR = ccore.fast_interp1d(np.copy(self.synths[i].sample[:,1]), sfunc.copy())
 
-                block = scipy.fft.ifft(scipy.fft.fft(new) * trans
-                                       + scipy.fft.fft(old) * (1 - trans))
+                    # morphing
+                    new.real = newL * env
+                    new.imag = newR * env
+                    old.real = oldL * env
+                    old.imag = oldR * env
 
-                # mixing L and R
-                blockL += (1 - MIX) * block.real + MIX * block.imag
-                blockR += (1 - MIX) * block.imag + MIX * block.real
+                    block = scipy.fft.ifft(scipy.fft.fft(new) * trans
+                                           + scipy.fft.fft(old) * (1 - trans))
+
+                    # mixing L and R
+                    volume = utils.cc_rescale(self.data[getattr(config, 'CC_V{}'.format(i))].get(), 0, 1)
+                    blockL += ((1 - MIX) * block.real + MIX * block.imag) * volume
+                    blockR += ((1 - MIX) * block.imag + MIX * block.real) * volume
 
         bits = int(utils.cc_rescale(self.data[config.CC_BITS].get(), 6, 32))
         binning = int(utils.cc_rescale(self.data[config.CC_BITS].get(), 1, 32, invert=True))

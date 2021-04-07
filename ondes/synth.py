@@ -106,18 +106,18 @@ class FakeSynth(object):
 class CubeSynth(object):
 
 
-    def __init__(self, data, cubepath, dfpath):
+    def __init__(self, index, data, cubepath, dfpath):
 
         assert isinstance(data, core.Data)
         self.data = data
-        self.name = 's0'
+        self.name = 's{}'.format(int(index))
         
         cube = np.load(cubepath, mmap_mode='r')
         logging.info('cube shape: {}'.format(cube.shape))
         
-        self.data['x_orig'].set(cube.shape[0] // 2)
-        self.data['y_orig'].set(cube.shape[1] // 2)
-
+        self.data['x_orig{}'.format(int(index))].set(config.XY[index][0])
+        self.data['y_orig{}'.format(int(index))].set(config.XY[index][1])
+        
         p = {
             'perc':Param(99.5, 95., 100., 0.05, cast=float),
             'depth':Param(4, 1, 10, 1),
@@ -148,8 +148,8 @@ class CubeSynth(object):
                 
             for iloop in range(self.p.depth()):
                 #rx, ry = np.random.randint(-self.p.deriv(), self.p.deriv(), 2)
-                self.x = int(self.data['x_orig'].get() + np.random.standard_normal() * self.p.deriv())
-                self.y = int(self.data['y_orig'].get() + np.random.standard_normal() * self.p.deriv())
+                self.x = int(self.data['x_orig{}'.format(int(index))].get() + np.random.standard_normal() * self.p.deriv())
+                self.y = int(self.data['y_orig{}'.format(int(index))].get() + np.random.standard_normal() * self.p.deriv())
                 _ispec = np.sum(cube[self.x-r:self.x+r+1,
                                      self.y-r:self.y+r+1, :], axis=(0,1))
                 #_ispec -= np.min(_ispec)
@@ -166,8 +166,8 @@ class CubeSynth(object):
             spectrum_to_draw = np.copy(spectrum)
             spectrum_to_draw = spectrum_to_draw[:min(config.MAX_DISPLAY_SIZE,
                                                      len(spectrum_to_draw))]
-            self.data['display_spectrum'][:len(spectrum_to_draw)] = spectrum_to_draw
-            self.data['display_spectrum_len'].set(len(spectrum_to_draw))
+            self.data['display_spectrum{}'.format(int(index))][:len(spectrum_to_draw)] = spectrum_to_draw.real.astype(config.DTYPE)
+            self.data['display_spectrum_len{}'.format(int(index))].set(len(spectrum_to_draw))
             
             spectrum = np.roll(spectrum, int(spectrum.shape[0] * self.p.spectrum_roll()))
             spectrum = utils.equalize_spectrum(spectrum, self.p.eq_power())
@@ -194,15 +194,17 @@ class CubeSynth(object):
             sample = sampler.Sample(sample)
             self.data.set_sample(self.name, sample.sample.astype(config.DTYPE))
             
+            
             #self.data.set_sample(self.name, np.copy(Wave(mode='sine').downsample))
             
-            
-            self.data['display_sample'][:min(config.MAX_DISPLAY_SIZE, len(sample.sample))] = sample.sample[:,0][:min(config.MAX_DISPLAY_SIZE, len(sample.sample))]
-            self.data['display_sample_len'].set(min(config.MAX_DISPLAY_SIZE, len(sample.sample)))
 
-            self.data.timing_buffers['synth_computation_time'].put(time.time() - stime)
-            self.data['x'].set(self.x)
-            self.data['y'].set(self.y)
+            
+            self.data['display_sample{}'.format(int(index))][:min(config.MAX_DISPLAY_SIZE, len(sample.sample))] = sample.sample[:,0][:min(config.MAX_DISPLAY_SIZE, len(sample.sample))]
+            self.data['display_sample_len{}'.format(int(index))].set(min(config.MAX_DISPLAY_SIZE, len(sample.sample)))
+
+            self.data.timing_buffers['synth_computation_time{}'.format(int(index))].put(time.time() - stime)
+            self.data['x{}'.format(int(index))].set(self.x)
+            self.data['y{}'.format(int(index))].set(self.y)
             time.sleep(config.SYNTH_LOOP_TIME)
             
             

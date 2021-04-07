@@ -17,8 +17,10 @@ class Machine(object):
         logging.info('processes init')
         self.processes = list()
         self.add_process('server', server.Server, (self.data,))
-        self.add_process('synth', synth.CubeSynth, (self.data, cubepath, dfpath))
-        #self.add_process('synth', synth.FakeSynth, (self.data,))
+        self.add_process('synth', synth.CubeSynth, (0, self.data, cubepath, dfpath))
+        self.add_process('synth', synth.CubeSynth, (1, self.data, cubepath, dfpath))
+        self.add_process('synth', synth.CubeSynth, (2, self.data, cubepath, dfpath))
+        
         self.add_process('midi', midi.Keyboard, (self.data,))
         self.add_process('display', display.CubeDisplay, (self.data, dfpath))
         
