@@ -115,14 +115,14 @@ class CubeSynth(object):
         cube = np.load(cubepath, mmap_mode='r')
         logging.info('cube shape: {}'.format(cube.shape))
         
-        self.x = cube.shape[0] // 2
-        self.y = cube.shape[1] // 2
+        self.data['x_orig'].set(cube.shape[0] // 2)
+        self.data['y_orig'].set(cube.shape[1] // 2)
 
         p = {
             'perc':Param(99.5, 95., 100., 0.05, cast=float),
             'depth':Param(4, 1, 10, 1),
-            'deriv':Param(5, 1, 10, 1),
-            'r':Param(11, 1, 30, 1),
+            'deriv':Param(2, 1, 10, 1),
+            'r':Param(1, 1, 30, 1),
             'reso':Param(4.8, 0.5, 30, 0.1, cast=float),
             'eq_power':Param(-2, -5, 5, 0.1, cast=float),
             'innerpad':Param(True, False, True, None, cast=bool),
@@ -138,20 +138,30 @@ class CubeSynth(object):
         self.p = Params(p)
 
 
-        
+        last_spectrum = None
         while True:
             stime = time.time()
             
             data = list()
-            
+
+            r = int(self.p.r())
+                
             for iloop in range(self.p.depth()):
-                rx, ry = np.random.randint(-self.p.deriv(), self.p.deriv(), 2)
-                self.x += rx
-                self.y += ry
-                data.append(cube[self.x, self.y, :])
+                #rx, ry = np.random.randint(-self.p.deriv(), self.p.deriv(), 2)
+                self.x = int(self.data['x_orig'].get() + np.random.standard_normal() * self.p.deriv())
+                self.y = int(self.data['y_orig'].get() + np.random.standard_normal() * self.p.deriv())
+                _ispec = np.sum(cube[self.x-r:self.x+r+1,
+                                     self.y-r:self.y+r+1, :], axis=(0,1))
+                #_ispec -= np.min(_ispec)
+                data.append(_ispec)
                 
                 
-            spectrum = np.concatenate(data)
+            new_spectrum = np.concatenate(data)
+            if last_spectrum is not None:
+                spectrum = new_spectrum + last_spectrum
+            else:
+                spectrum = new_spectrum
+            last_spectrum = np.copy(new_spectrum)
             
             spectrum_to_draw = np.copy(spectrum)
             spectrum_to_draw = spectrum_to_draw[:min(config.MAX_DISPLAY_SIZE,
@@ -169,11 +179,12 @@ class CubeSynth(object):
                 
             sample = utils.spec2sample(
                 spectrum,
-                self.p.duration(),
+                max(self.p.duration(), 4),
                 config.SAMPLERATE,
                 minfreq=self.p.fmin(),
                 maxfreq=maxfreq,
                 reso=self.p.reso())
+            sample = sample[:int(self.p.duration() * config.SAMPLERATE),:]
             
             sample *= 10**(self.p.volume())
             sample = np.roll(sample, int(sample.shape[0] * self.p.sample_roll()))

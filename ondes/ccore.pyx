@@ -19,6 +19,52 @@ cdef int SAMPLERATE = <int> config.SAMPLERATE
 cdef int A_MIDIKEY = <int> config.A_MIDIKEY
 cdef int BASENOTE = <int> config.BASENOTE
 
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef reduce_srate(np.float32_t[:] a, int binning):
+    cdef int i, j
+    cdef float s
+    assert binning > 1
+    with nogil:
+        for i in range(a.shape[0]//binning + 1):
+            i = i * binning
+            s = 0
+            for j in range(binning):
+                if i + j < a.shape[0]:
+                    s = s + a[i + j]
+            for j in range(binning):
+                if i + j < a.shape[0]:
+                    a[i+j] = s / binning
+    return a
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef dither(np.float32_t[:] a, int b_new, float c=0.8):
+    cdef int b_orig = 32
+    cdef float s = (2**b_orig)/(2**b_new)
+    cdef float e = 0
+    cdef int i
+    cdef np.float32_t[::1] d = np.random.standard_normal(a.shape[0]).astype(np.float32)
+    cdef float F_scaled
+    cdef float F_scaled_dither
+    
+    
+    with nogil:
+        for i in range(a.shape[0]):
+            a[i] = a[i] * (2**(b_orig-1))
+            F_scaled = a[i] // s
+            F_scaled_dither = F_scaled + d[i] + c * e
+            a[i] = <float> floor(F_scaled_dither)
+            e = F_scaled - a[i]
+            a[i] = a[i] / (2**(b_new-1))
+            if a[i] > 1: a[i] = 1
+            elif a[i] < -1: a[i] = -1
+                
+    return a
+
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)

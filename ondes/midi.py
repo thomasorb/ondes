@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import time
 import scipy.interpolate
+import scipy.stats
 
 from . import ccore
 
@@ -14,17 +15,20 @@ from . import utils
 class AllFinished(Exception): pass
 
 class KeySampler(object):
-    def __init__(self, note, velocity, length, attack=10, release=10, velocity_response=1):
+    def __init__(self, data, note, velocity, length, attack=10, release=10, velocity_response=3):
         """
         :param attack: in ms
         :param release: in ms
         """
+        assert isinstance(data, core.Data)
+        self.data = data
+
         self.index = 0
         self.note = int(note)
         self.volume = int(velocity) / 127.
         velocity = int(velocity) / 127. * float(velocity_response)
         self.attack = 5 + float(attack) / velocity 
-        self.release = float(release) * velocity * 30 
+        self.release = float(release) * velocity * 30
         self.released = False
         self.stopped = False
         self.length = int(length)
@@ -39,10 +43,14 @@ class KeySampler(object):
 
     def set_volume(self, volume):
         self.volume = float(volume)
+
         
     def get_next(self):
         start_index = int(self.index)
-        end_index = start_index + config.BLOCKSIZE * self.sampling_step
+        
+        shift = 10**((self.data[config.CC_SHIFT].get() / 127. - 0.5)*2)
+        
+        end_index = start_index + config.BLOCKSIZE * self.sampling_step * shift
         sampling_vector = np.linspace(start_index, end_index, config.BLOCKSIZE)
         sampling_vector = np.mod(sampling_vector, self.length - 1)
         self.index = sampling_vector[-1] + self.sampling_step
@@ -98,7 +106,7 @@ class Keyboard(object):
             
             for msg in self.inport.iter_pending():
                 if msg.type == 'note_on':
-                    self.keys.append(KeySampler(msg.note, msg.velocity, self.length))
+                    self.keys.append(KeySampler(self.data, msg.note, msg.velocity, self.length))
                     last_note = msg.note
                     
                 elif msg.type == 'note_off':
@@ -106,10 +114,14 @@ class Keyboard(object):
                         if ikeys.note == msg.note:
                             ikeys.stop()
                 elif msg.type == 'aftertouch':
-                    for ikeys in self.keys:
-                        if ikeys.note == last_note:
-                            ikeys.set_volume(msg.value / 127.)
-                            
+                    pass
+                    # for ikeys in self.keys:
+                    #     if ikeys.note == last_note:
+                    #         ikeys.set_volume(msg.value / 127.)
+                elif msg.type == 'control_change':
+                    if msg.control in [16, 17, 18, 19, 20, 21]:
+                        self.data['cc{}'.format(msg.control)].set(msg.value)
+                
             if not self.data.buffer_is_full('synth'):
                 try:
                     self.data.put_block('synth', *self.next_block())
@@ -127,6 +139,9 @@ class Keyboard(object):
         self.inport.close()
                 
     def next_block(self):
+
+        MIX = 0.25 # max 0.5
+        
         stime = time.time()
         blockL = np.zeros(config.BLOCKSIZE, dtype=config.DTYPE)
         blockR = np.zeros(config.BLOCKSIZE, dtype=config.DTYPE)
@@ -136,19 +151,38 @@ class Keyboard(object):
         trans = np.clip((np.arange(config.BLOCKSIZE)
                         + self.samples_counter
                         - self.transit_start) / config.TRANSIT_TIME, 0, 1)
-        
+
+        new = np.empty_like(blockL, dtype=complex)
+        old = np.empty_like(blockL, dtype=complex)
+                
         for ikey in self.keys:
             if not ikey.stopped:
                 all_finished = False
                 sfunc, env = ikey.get_next()
-                oldL = ccore.fast_interp1d(np.copy(self.old_sample[:,0]), sfunc.copy()) * env
-                newL = ccore.fast_interp1d(np.copy(self.sample[:,0]), sfunc.copy()) * env
-                oldR = ccore.fast_interp1d(np.copy(self.old_sample[:,1]), sfunc.copy()) * env
-                newR = ccore.fast_interp1d(np.copy(self.sample[:,1]), sfunc.copy()) * env
-                
-                blockL += newL * trans + oldL * (1-trans)
-                blockR += newR * trans + oldR * (1-trans)
-                
+                oldL = ccore.fast_interp1d(np.copy(self.old_sample[:,0]), sfunc.copy())
+                newL = ccore.fast_interp1d(np.copy(self.sample[:,0]), sfunc.copy()) 
+                oldR = ccore.fast_interp1d(np.copy(self.old_sample[:,1]), sfunc.copy()) 
+                newR = ccore.fast_interp1d(np.copy(self.sample[:,1]), sfunc.copy())
+
+                # morphing
+                new.real = newL * env
+                new.imag = newR * env
+                old.real = oldL * env
+                old.imag = oldR * env
+
+                block = scipy.fft.ifft(scipy.fft.fft(new) * trans
+                                       + scipy.fft.fft(old) * (1 - trans))
+
+                # mixing L and R
+                blockL += (1 - MIX) * block.real + MIX * block.imag
+                blockR += (1 - MIX) * block.imag + MIX * block.real
+
+        bits = int(utils.cc_rescale(self.data[config.CC_BITS].get(), 6, 32))
+        binning = int(utils.cc_rescale(self.data[config.CC_BITS].get(), 1, 32, invert=True))
+        blockL = utils.bit_crush(blockL, bits, binning)
+        blockR = utils.bit_crush(blockR, bits, binning)
+        
+                                
         if all_finished:
             raise AllFinished
         return blockL, blockR

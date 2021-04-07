@@ -3,6 +3,7 @@ import re
 import scipy.fft
 import hashlib
 import time
+from . import ccore
 
 def fastinterp1d(a, x):
     assert np.all((0 <= x)  * (x <= len(a) - 1))
@@ -265,3 +266,17 @@ def equalize_spectrum(spec, factor):
     # factor of -3 should give pink noise but unsure
     # http://hyperphysics.phy-astr.gsu.edu/hbase/Audio/equal.html
     return spec * np.linspace(1, 10, len(spec))**factor
+
+
+def bit_crush(a, bits, binning):
+    if bits < 32:
+        a = ccore.dither(a, bits)
+    if binning > 1:
+        a = ccore.reduce_srate(a, binning)
+    return a
+
+def cc_rescale(cc, minscale, maxscale, invert=False):
+    if not invert:
+        return cc / 127. * (maxscale - minscale) + minscale
+    else:
+        return (1 - cc / 127.) * (maxscale - minscale) + minscale

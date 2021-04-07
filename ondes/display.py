@@ -27,6 +27,7 @@ class CubeDisplay(object):
         pl.ion()
         self.imfig = pl.figure(figsize=(10,5))
         self.imfig.patch.set_facecolor('black')
+        self.imfig.canvas.mpl_connect('button_press_event', self.onclick)
         
         gs = matplotlib.gridspec.GridSpec(GRIDSIZE, 2*GRIDSIZE, wspace=1, hspace=0)
         
@@ -92,12 +93,8 @@ class CubeDisplay(object):
     def onclick(self, event):
         if event.inaxes not in [self.image_ax]:
             return
-
-        #self.last_spectrum = self.extract_spectrum(int(event.xdata), int(event.ydata))
-        
-        self.spectrum_ax.cla()
-        #compute_effects().play(duration=self.p.duration())
-        
+        self.data['x_orig'].set(int(event.xdata // config.BINNING))
+        self.data['y_orig'].set(int(event.ydata // config.BINNING))
         
     def redraw_plot(self, ax, data, title, log=False, xlim=None):
         ax.cla()

@@ -295,8 +295,17 @@ class Data(object):
         # x y
         self.add_value('x', 0)
         self.add_value('y', 0)
-        
+        self.add_value('x_orig', 0)
+        self.add_value('y_orig', 0)
 
+        ## control change
+        self.add_value('cc16', config.CC16_DEFAULT)
+        self.add_value('cc17', config.CC17_DEFAULT)
+        self.add_value('cc18', config.CC18_DEFAULT)
+        self.add_value('cc19', config.CC19_DEFAULT)
+        self.add_value('cc20', config.CC20_DEFAULT)
+        self.add_value('cc21', config.CC21_DEFAULT)
+        
     def __getitem__(self, name):
         return getattr(self, name)
 

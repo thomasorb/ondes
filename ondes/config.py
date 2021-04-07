@@ -23,8 +23,8 @@ logging.info('max sample length: {:.2f} s'.format(MAX_SAMPLE_LEN * BLOCKTIME / 1
 
 
 MAX_SYNTHS = 1
-SYNTH_LOOP_TIME = 4 # s
-TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME / 2.# in samples
+SYNTH_LOOP_TIME = 2 # s
+TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME # in samples
 
 VOLUME_ADJUST = 10.
 BASENOTE = 102
@@ -35,6 +35,18 @@ PADNOTE_SHIFT = -36
 
 MAX_DISPLAY_SIZE = 20000
 BINNING = 4
+
+
+CC_SHIFT = 'cc16'
+CC_BITS = 'cc17'
+CC16_DEFAULT = 0.5
+CC17_DEFAULT = 1.
+CC18_DEFAULT = 0.
+CC19_DEFAULT = 0.
+CC20_DEFAULT = 0.
+CC21_DEFAULT = 0.
+
+
 
 # pulseaudio -k && sudo alsa force-reload
 # ffmpeg -ac 2 -i 'Kick 03.aif' 'Kick 03.wav'

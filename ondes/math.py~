@@ -1,5 +1,0 @@
-def compress(data, threshold, level):
-    return np.where(
-        np.abs(data) < threshold,
-        data * level / threshold,
-        (data + (-1) * np.sign(data) * threshold) * (1 - level) / (1 - threshold) + np.sign(data) * level)

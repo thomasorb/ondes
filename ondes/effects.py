@@ -1,6 +1,7 @@
 import numpy as np
 #import scipy.interpolate
 import scipy.fft
+import scipy.stats
 
 from . import utils
 from . import config
