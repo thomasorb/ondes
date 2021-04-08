@@ -5,6 +5,26 @@ import hashlib
 import time
 from . import ccore
 
+def power_spectrum(s, srate, coeff=2):
+    n = len(s)
+    axis = scipy.fft.fftfreq(coeff*n, 1/srate)[:int(n*coeff/2)]
+    pows = np.abs(scipy.fft.fft(s, n=coeff*n)[:int(n*coeff/2)])
+    return axis, pows
+
+def bpfilter(s, fmin, fmax, srate, width=100):
+    # width in Hz
+    n = len(s)
+    axis = np.abs(scipy.fft.fftfreq(n, 1/srate))
+    
+    sfft = scipy.fft.fft(s, n=n)
+
+    w = ((axis > fmin) * (axis < fmax)).astype(float)
+    rmin = (axis > fmin - np.pi * width) * (axis < fmin)
+    w[rmin] = (np.cos((axis[rmin] - fmin)/width) + 1) /2.
+    rmax = (axis < fmax + np.pi * width) * (axis > fmax)
+    w[rmax] = (np.cos((axis[rmax] - fmax)/width) + 1) /2.
+    return scipy.fft.ifft(sfft * w)
+
 def fastinterp1d(a, x):
     assert np.all((0 <= x)  * (x <= len(a) - 1))
     xint = np.copy(x).astype(int)
@@ -38,123 +58,6 @@ def hipass(n, coeff):
 
 def bdpass(n, center, width):
     return lopass(n, (center+width)) * hipass(n, (center-width))
-
-
-def read_msg(msg, n):
-    durations = {
-        'O':32,
-        'oo':16, # white
-        'oo.':24, # white
-        'o':8, # black
-        'o.':12, 
-        'p':4, # croche
-        'p.':6,
-        'pp':2, # double croche
-        'pp.':3,
-        'ppp':1 # triple croche
-    }
-    arr = np.zeros(n, dtype=bool)
-
-    if 'end' in msg:
-        return arr
-    
-    index = 0
-    
-    if 'x' in msg:
-        for c in list(msg):
-            
-            if c == 'x':
-                arr[index] = True
-                index += 1
-            elif c == '.':
-                index += 1
-            elif c == '|':
-                index += 8
-                index -= index%8
-            elif c == ':':
-                index += 4
-                index -= index%4
-            
-            
-            if index >= n: break
-        return arr
-    
-    redur = re.compile(r'[Oop.*$]+')
-    durs = redur.findall(msg)
-    index = 0
-    for idur in durs:
-        silence = False
-        if '*' in idur:
-            idur = idur.replace('*', '')
-            silence = True
-        if idur not in durations:
-            raise Exception('duration not understood {}'.format(idur))
-        if not silence:
-            arr[index] = True
-        index += durations[idur]
-        if index >= n: break
-    return arr
-
-def read_synth_msg(msg, n):
-
-        
-    renote = re.compile(r'[\dABCDEFG#?]+')
-    
-
-    arr = -np.ones(n, dtype=int)
-    arrd = np.zeros(n, dtype=int)
-
-    if 'end' in msg:
-        return arr, arrd
-    index = 0
-
-    notestart = False
-    last_note_index = 0
-    i = 0
-    while not i == len(msg) - 1:
-        c = msg[i]
-        i += 1
-        
-        if c=='.':
-            if notestart:
-                arrd[last_note_index] = index - last_note_index
-                
-            notestart = False
-            index += 1
-            
-        elif c == '|':
-            index += 8
-            index -= index%8
-        elif c == ':':
-            index += 4
-            index -= index%4
-        elif c == '=':
-            index += 1        
-        elif renote.findall(c) != []:
-            inote = c
-            if not notestart:
-                notestart = True
-                last_note_index = int(index)
-            else: 
-                arrd[last_note_index] = index - last_note_index
-                last_note_index = int(index)
-                
-            while renote.findall(msg[i]) != []:
-                c = msg[i]
-                inote += c
-                i += 1
-            arr[last_note_index] = get_note_value(inote)
-                        
-        else:
-            raise Exception('bad msg formatting')
-    if notestart:
-        arrd[last_note_index] = index - last_note_index
-
-                
-
-    #for idur, inote in zip(durs, notes):
-    #    get_note_value(inote)
-    return arr, arrd
 
 def note2f(note, a_midikey):
     return 440. / 2**(float(a_midikey - note) / 12.) / 2.
@@ -242,6 +145,11 @@ def spec2sample(spec, duration, samplerate, minfreq=None, maxfreq=None, reso=1):
     spec = np.pad(spec, ((padl, padr)))
     
     specfft = scipy.fft.fft(spec)
+
+    # not optimal but working perfectly
+    specfft = bpfilter(specfft, 20, 20000, samplerate, width=20)
+    
+    
     sample = np.array([specfft.real[:],
                        specfft.imag[:]]).T
     

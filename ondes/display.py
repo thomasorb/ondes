@@ -6,7 +6,7 @@ import time
 
 from . import core
 from . import config
-
+from . import utils
 
 class SynthData(object):
 
@@ -125,12 +125,15 @@ class CubeDisplay(object):
         self.data['x_orig0'].set(int(event.xdata // config.BINNING))
         self.data['y_orig0'].set(int(event.ydata // config.BINNING))
         
-    def redraw_plot(self, ax, data, title, log=False, xlim=None):
+    def redraw_plot(self, ax, data, title, log=False, xlim=None, axis=None):
         
         ax.cla()
         ax.set_facecolor('black')
         for i in range(len(data)):
-            ax.plot(data[i], c=self.colors[i], label=title, alpha=0.5)
+            if axis is None:
+                ax.plot(data[i], c=self.colors[i], label=title, alpha=0.5)
+            else:
+                ax.plot(axis[i], data[i], c=self.colors[i], label=title, alpha=0.5)
             ax.lines[i].set_data(np.arange(np.size(data[i])), data[i]) # set plot data
         ax.relim()                  # recompute the data limits
         ax.autoscale_view()         # automatic axis scaling
@@ -139,26 +142,34 @@ class CubeDisplay(object):
         if log:
             ax.set_xscale('log')
             ax.set_yscale('log')
-        #ax.legend(loc='upper left')
-        ax.axis('off')
+            ax.axis('on')
+            ax.spines['bottom'].set_color('white')
+            ax.xaxis.set_ticks([20, 200, 2000, 20000])
+            ax.tick_params(axis='x', colors='white')
+            
+            ax.set_xticklabels([20, 200, 2000, 20000])
 
+        #ax.legend(loc='upper left')
+        
     def redraw_plots(self):
         spectra = list()
         samples = list()
         powersp = list()
+        powaxes = list()
         for i in range(config.MAX_SYNTHS):
             if self.synths[i].spectrum is not None:
                 spectra.append(self.synths[i].spectrum)
             if self.synths[i].sample is not None:
                 samples.append(self.synths[i].sample)
-                ipow = np.abs(scipy.fft.fft(self.synths[i].sample))
-                powersp.append(ipow[:ipow.size//2])
+                iaxis, ipow = utils.power_spectrum(self.synths[i].sample, config.SAMPLERATE)
+                powersp.append(ipow)
+                powaxes.append(iaxis)
                 
         if len(spectra) > 0:
             self.redraw_plot(self.spectrum_ax, spectra, 'spectrum')
         if len(samples) > 0:
             self.redraw_plot(self.sample_ax, samples, 'sample')
-            self.redraw_plot(self.power_ax, powersp, 'power spectrum', xlim=(20, 20000), log=True)
+            self.redraw_plot(self.power_ax, powersp, 'power spectrum', xlim=(20, 20000), log=True, axis=powaxes)
 
                 
         
