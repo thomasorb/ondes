@@ -172,7 +172,7 @@ class Keyboard(object):
         stime = time.time()
         blockL = np.zeros(config.BLOCKSIZE, dtype=config.DTYPE)
         blockR = np.zeros(config.BLOCKSIZE, dtype=config.DTYPE)
-
+            
         all_finished = True
 
         new = np.empty_like(blockL, dtype=complex)
@@ -200,8 +200,7 @@ class Keyboard(object):
                     old.real = oldL * env
                     old.imag = oldR * env
 
-                    block = scipy.fft.ifft(scipy.fft.fft(new) * trans
-                                           + scipy.fft.fft(old) * (1 - trans))
+                    block = utils.morph(new, old, trans)
 
                     # mixing L and R
                     volume = utils.cc_rescale(self.data[getattr(config, 'CC_V{}'.format(i))].get(), 0, 1)

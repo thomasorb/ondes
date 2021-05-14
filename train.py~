@@ -1,0 +1,10 @@
+import logging
+logging.getLogger().setLevel(logging.INFO)
+        
+import ondes.nn
+
+import soundfile as sf
+data, srate = sf.read('../andante.wav')
+
+
+brain = ondes.nn.Brain(False)

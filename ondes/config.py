@@ -7,6 +7,7 @@ MIDIDEVICE = 'Akai MPD24'
 
 BUFFERSIZE = 10 # number of blocks used for buffering
 BLOCKSIZE = 512 #768 # block size
+
 SAMPLERATE = 44100
 BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
 
@@ -58,3 +59,7 @@ XY = {
 # ffmpeg -ac 2 -i 'Kick 03.aif' 'Kick 03.wav'
 
 
+## NN params
+NCHANNELS = 2
+NNPATH = '.brain.pth'
+        

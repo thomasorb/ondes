@@ -7,7 +7,7 @@ import time
 
 from . import core
 from . import config
-
+from . import utils
 
 class Server(object):
 
@@ -16,7 +16,7 @@ class Server(object):
         self.data = data
         zerosdata = np.zeros((config.BLOCKSIZE, 2), dtype=config.DTYPE)
         
-        def callback(outdata, frames, timing, status):
+        def callback(indata, outdata, frames, timing, status):
 
             def get_block(name):
                 
@@ -35,6 +35,19 @@ class Server(object):
             stime = time.time()
             
             assert frames == config.BLOCKSIZE
+
+            # put input
+            # try:
+            #     self.data.put_block('input', indata[:,0], indata[:,1])
+            # except core.BufferFull:
+            #     logging.warn('Input buffer full')
+                
+            # except Exception as e:
+            #     logging.warn('Input exception: {}'.format(e))
+                
+                
+            # get output
+            
             if status.output_underflow:
                 logging.warn('Output underflow: increase blocksize?')
                 data = np.copy(zerosdata)
@@ -49,15 +62,21 @@ class Server(object):
             data = data.astype(config.DTYPE)
             
             assert data.shape == outdata.shape, 'data len must match'
+
+            # morphing with input
+
+            #data = utils.morph(indata, data, 0.5)
+            
+            # send to out channel
             outdata[:] = data
 
             self.data.timing_buffers['server_callback_time'].put(time.time() - stime)
             return
 
-        self.stream = sd.OutputStream(
+        self.stream = sd.Stream(
             samplerate=config.SAMPLERATE, blocksize=config.BLOCKSIZE,
             device=self.get_device(), channels=2, dtype=config.DTYPE,
-            callback=callback)#, finished_callback=self.data.event.set)
+            callback=callback)
             
         self.stream.start()
         

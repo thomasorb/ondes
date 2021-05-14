@@ -188,3 +188,8 @@ def cc_rescale(cc, minscale, maxscale, invert=False):
         return cc / 127. * (maxscale - minscale) + minscale
     else:
         return (1 - cc / 127.) * (maxscale - minscale) + minscale
+
+def morph(a1, a2, mix):
+    return scipy.fft.ifft(
+        scipy.fft.fft(a1, axis=0) * mix
+        + scipy.fft.fft(a2, axis=0) * (1 - mix), axis=0)

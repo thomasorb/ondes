@@ -273,10 +273,11 @@ class Data(object):
         self.buffers = dict()
         self.timing_buffers = dict()
         self.samples = dict()
-        
-        # add buffers
-        self.add_buffer('synth')
 
+        # add buffers
+        self.add_buffer('input')
+        self.add_buffer('synth')
+        
         # downsampled function for each synth (same stuff as a sample)
         for isynth in range(config.MAX_SYNTHS):
             self.add_sample('s{}'.format(isynth))
