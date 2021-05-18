@@ -60,6 +60,6 @@ XY = {
 
 
 ## NN params
-NCHANNELS = 2
+NCHANNELS = 1 # data treated as mono
 NNPATH = '.brain.pth'
         

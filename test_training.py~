@@ -1,0 +1,14 @@
+import numpy as np
+import glob
+from ondes import nn
+import logging
+logging.getLogger().setLevel(logging.INFO)
+import soundfile as sf
+
+brain = nn.Brain(False)
+in_data, srate = sf.read("../training/Cinematic Orchestra - man with a movie camera.wav", frames=44100*60, start=44100*60)
+if in_data.ndim == 2: 
+    in_data = np.mean(in_data, axis=1)
+out_data = brain.process(in_data, bypass=False)
+
+sf.write('test.wav', out_data, samplerate=srate)
