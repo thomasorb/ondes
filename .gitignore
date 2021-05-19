@@ -14,3 +14,4 @@ orb_kernel.egg-info/
 .eggs/
 .brain.pth.*
 *.wav
+*.npy
