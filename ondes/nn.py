@@ -14,15 +14,9 @@ import torch.optim
 import scipy.fft
 import scipy.signal
 
-def hiwei(size, factor=2):
-    assert factor >= 1, 'factor must be greater than 1'
-    wei = np.arange(size, dtype=float) / size * (factor - 1) + 1
-    return wei.reshape((1,1,size))
-
 def normalize(data, threshold):
     data = 20 * np.log10(data) # magnitude is converted to dB (pressure-level)
     # amplify high frequencies to give them more weight for the loss computation
-    #data *= hiwei(data.shape[2])
     data[data < threshold] = threshold # data threshold    
     data_min = np.min(data)
     data -= data_min
@@ -36,7 +30,6 @@ def denormalize(data, coeffs):
     data += 1
     data *= coeffs[1] / 2
     data += coeffs[0]
-    #data /= hiwei(data.shape[2])
     data = 10**(data / 20)
     return data  
 
@@ -47,15 +40,11 @@ class NeuralNet(torch.nn.Module):
         super(NeuralNet, self).__init__()
 
         #DROPOUT_RATE = 0.2
-        INCHANNELS = config.NCHANNELS 
-        CONV1CHANNELS = INCHANNELS * 4
-        CONV2CHANNELS = CONV1CHANNELS * 4
 
         self.input_size = config.BLOCKSIZE // 2 + 1
-        #NFC0 = 257
         NFC1 = 128
         NFC2 = 64
-        NFC3 = 16
+        NFC3 = 32
 
         def freeze(layer):
             for param in layer.parameters():
@@ -64,14 +53,12 @@ class NeuralNet(torch.nn.Module):
         ############################################################
         ## WARNING don't forget to set the encoding and decoding layers
         ############################################################
-        #self.fc0 = torch.nn.Linear(self.input_size, NFC0)
         self.fc1 = torch.nn.Linear(self.input_size, NFC1)
         self.fc2 = torch.nn.Linear(NFC1, NFC2)
         self.fc3 = torch.nn.Linear(NFC2, NFC3)
         self.fc3out = torch.nn.Linear(NFC3, NFC2)
         self.fc2out = torch.nn.Linear(NFC2, NFC1)
         self.fc1out = torch.nn.Linear(NFC1, self.input_size)
-        #self.fc0out = torch.nn.Linear(NFC0, self.input_size)
         
         #self.drop = torch.nn.Dropout(DROPOUT_RATE)
         
@@ -92,7 +79,6 @@ class NeuralNet(torch.nn.Module):
         return x.reshape((nbatch, config.NCHANNELS, self.input_size))
 
     def encode(self, x):
-        #x = torch.tanh(self.fc0(x))
         x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
         x = torch.tanh(self.fc3(x))
@@ -102,7 +88,6 @@ class NeuralNet(torch.nn.Module):
         x = torch.tanh(self.fc3out(x))
         x = torch.tanh(self.fc2out(x))
         x = self.fc1out(x)
-        #x = self.fc0out(x)
         return x
 
     
@@ -169,7 +154,6 @@ class Brain(object):
         #data_fft = scipy.fft.rfft(data)[:,:,:-1]
         
         _, _, data_fft = scipy.signal.stft(data, nperseg=config.BLOCKSIZE)
-        print(data_fft.shape)
         
         data_fft = data_fft.reshape((data_fft.shape[-1], 1 ,data_fft.shape[0]))
         self.data_fft_shape = data_fft.shape
@@ -199,8 +183,6 @@ class Brain(object):
     
     def process(self, data, bypass=False):
 
-        #RECON_NOISE_COEFF = 0.000001
-
         self.data_is_valid(data)
         
         if (data.size * data.itemsize) / 1e9 > self.MAX_BATCH_SIZE:
@@ -213,44 +195,19 @@ class Brain(object):
         data = self.preprocess(data, bypass=bypass)
         
         if not bypass:
-            
-            # if self.train:
-            #     # add noise also to the data passed to the network
-            #     rec_noise = np.random.standard_normal(size=data.size).reshape(data.shape) * RECON_NOISE_COEFF
-            #     data = torch.from_numpy(data)
-            #     data_out = self.net(data.float() + torch.from_numpy(rec_noise).float()).double()
-            # else:
-            #     data = torch.from_numpy(data)
-            #     data_out = self.net(data.float()).double()
             data = torch.from_numpy(data)
             data_out = self.net(data.float()).double()
+            if self.train:
+                rec_loss = self.net.reconstruction_loss(data_out, data)
+                loss = rec_loss + self.net.latent_loss
+                logging.info('({}) losses: {}, {}'.format(self.index, rec_loss.item(), self.net.latent_loss))
+                loss.backward() # compute gradient
 
-        else:
-            data_out = np.copy(data)
-            
-        if self.train and not bypass:
-            rec_loss = self.net.reconstruction_loss(data_out, data)
-            loss = rec_loss + self.net.latent_loss
-            logging.info('({}) losses: {}, {}'.format(self.index, rec_loss.item(), self.net.latent_loss))
-            loss.backward() # compute gradient
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-        if not bypass:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
             data = data_out.detach().numpy()
-        del data_out
 
         data = self.postprocess(data)
-            
-        # if self.train:
-        #     self.index += 1
-        #     if not self.index%4 and self.index > 0:
-        #         try:
-        #             logging.debug('saving')
-        #             torch.save(self.net.state_dict(), config.NNPATH + '.{}'.format(datetime.datetime.timestamp(datetime.datetime.now())))
-        #         except Exception as e:
-        #             logging.warning('exception during model save', e)
 
         if self.train:
             return data, loss.item()
@@ -282,12 +239,4 @@ class Brain(object):
             torch.save(self.net.state_dict(), config.NNPATH + '.{}'.format(datetime.datetime.timestamp(datetime.datetime.now())))
         except Exception as e:
             logging.warning('exception during model save', e)
-            
-    # def __del__(self):
-    #     try:
-    #         if self.train:
-    #             torch.save(self.net.state_dict(), config.NNPATH)
-    #     except Exception as e:
-    #         logging.warning('exception during model save', e)
-            
         

@@ -1,0 +1,16 @@
+*.pyc
+*.py~
+*.pyx~
+*~
+*.so
+*.o
+*.c
+ondes/*.so
+ondes/*.o
+ondes/*.c
+dist/
+build/
+orb_kernel.egg-info/
+.eggs/
+.brain.pth.*
+*.wav
