@@ -4,8 +4,59 @@ from ondes import nn
 import logging
 logging.getLogger().setLevel(logging.INFO)
 import soundfile as sf
+import time
+
+## latency
+BLOCKSIZE = 256 # simulate a server blocksize for nn entry which should be 2xconfig.BLOCKSIZE
 
 brain = nn.Brain(False)
+
+
+in_data, srate = sf.read("../training/Radiohead - Kid A.wav", frames=BLOCKSIZE*1000, start=44100*60)
+if in_data.ndim == 2: 
+    in_data = np.mean(in_data, axis=1)
+    
+times = list()
+last_inblock = None
+last_outblock = None
+out_data = np.zeros_like(in_data)
+
+bigblock = np.empty(2*BLOCKSIZE, dtype=float)
+iblock = 0
+while iblock < in_data.size - BLOCKSIZE:
+    
+    stime = time.time()
+    new_block = in_data[iblock:iblock+BLOCKSIZE] # must be replaced with the output of getblock
+    if last_inblock is None:
+        last_inblock = new_block
+        continue
+
+    bigblock[:BLOCKSIZE] = last_inblock
+    bigblock[BLOCKSIZE:] = new_block
+
+    out2blocks = brain.process(np.copy(bigblock), bypass=False)
+    if last_outblock is None:
+        out_data[iblock:iblock+BLOCKSIZE] = out2blocks[:BLOCKSIZE]
+    else:
+        lev = np.linspace(0,1,BLOCKSIZE)
+        out_data[iblock:iblock+BLOCKSIZE] = lev * out2blocks[:BLOCKSIZE] + (1-lev) * last_outblock
+    last_outblock = out2blocks[BLOCKSIZE:]
+        
+    times.append(time.time() - stime)
+    
+    iblock += BLOCKSIZE
+    
+    
+sf.write('test0.wav', out_data, samplerate=srate)
+
+print(np.median(times), np.std(times), np.min(times), np.max(times))
+
+
+print(out_data.shape)
+
+
+
+quit()
 in_data, srate = sf.read("../training/Radiohead - Kid A.wav", frames=44100*60, start=44100*60)
 if in_data.ndim == 2: 
     in_data = np.mean(in_data, axis=1)

@@ -154,7 +154,7 @@ class Brain(object):
         #data_fft = scipy.fft.rfft(data)[:,:,:-1]
         
         _, _, data_fft = scipy.signal.stft(data, nperseg=config.BLOCKSIZE)
-        
+        print(data_fft.shape)
         data_fft = data_fft.reshape((data_fft.shape[-1], 1 ,data_fft.shape[0]))
         self.data_fft_shape = data_fft.shape
         self.data_phase = np.angle(data_fft) # phase detached and kept to the end
@@ -181,7 +181,7 @@ class Brain(object):
         del self.data_phase
         return data
     
-    def process(self, data, bypass=False):
+    def process(self, data, bypass=False, nowindow=False):
 
         self.data_is_valid(data)
         
