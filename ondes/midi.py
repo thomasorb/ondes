@@ -15,7 +15,7 @@ from . import utils
 class AllFinished(Exception): pass
 
 class KeySampler(object):
-    def __init__(self, data, note, velocity, length, attack=10, release=10, velocity_response=3):
+    def __init__(self, data, note, velocity, length, attack=1000, release=300):
         """
         :param attack: in ms
         :param release: in ms
@@ -25,10 +25,13 @@ class KeySampler(object):
 
         self.index = 0
         self.note = int(note)
-        self.volume = int(velocity) / 127.
-        velocity = int(velocity) / 127. * float(velocity_response)
-        self.attack = 5 + float(attack) / velocity 
-        self.release = float(release) * velocity * 30
+        velocity = utils.cc_rescale(velocity, 0, 1)
+        softness = utils.cc_rescale(self.data[config.CC_SOFTNESS].get(), 0, 1)
+        #softness += ((1 - softness) - velocity) * 0.15 # softness modulated by velocity
+        self.volume = velocity
+        self.attack = 1 + attack * softness
+        self.release = 30 + release * (1 - softness)
+        
         self.released = False
         self.stopped = False
         self.length = int(length)
@@ -58,10 +61,14 @@ class KeySampler(object):
         envelope = np.clip((self.t + self.duration) / self.attack, 0, 1)
 
         if self.released:
-            envelope *= np.clip(-(self.t + self.duration - self.release_start)/self.release + 1, 0, 1)
+            #envelope *= np.clip(-(self.t + self.duration - self.release_start)/self.release + 1, 0, 1)
+            # exponential release
+            envelope *= np.exp(-(self.t + self.duration - self.release_start)/(self.release + 1))
+            
         self.duration += config.BLOCKTIME
         if self.released:
-            if self.duration - self.release_start > self.release:
+            #if self.duration - self.release_start > self.release:
+            if np.exp(-(self.duration - self.release_start) / self.release) < 0.05:
                 self.stopped = True
         
         return sampling_vector.astype(config.DTYPE), envelope * self.volume
@@ -152,7 +159,9 @@ class Keyboard(object):
                 
             if not self.data.buffer_is_full('synth'):
                 try:
+                    ntime = time.time()
                     self.data.put_block('synth', *self.next_block())
+                    self.data.timing_buffers['keyboard_next_block_time'].put(time.time() - ntime)
                     
                 except AllFinished: pass
                 except Exception as e:
@@ -177,7 +186,7 @@ class Keyboard(object):
 
         new = np.empty_like(blockL, dtype=complex)
         old = np.empty_like(blockL, dtype=complex)
-                
+        
         for ikey in self.keys:
             if not ikey.stopped:
                 all_finished = False
@@ -188,7 +197,7 @@ class Keyboard(object):
                         + self.synths[i].samples_counter
                         - self.synths[i].transit_start) / config.TRANSIT_TIME, 0, 1)
 
-        
+                    
                     oldL = ccore.fast_interp1d(np.copy(self.synths[i].old_sample[:,0]), sfunc.copy())
                     newL = ccore.fast_interp1d(np.copy(self.synths[i].sample[:,0]), sfunc.copy()) 
                     oldR = ccore.fast_interp1d(np.copy(self.synths[i].old_sample[:,1]), sfunc.copy())
@@ -200,10 +209,13 @@ class Keyboard(object):
                     old.real = oldL * env
                     old.imag = oldR * env
 
-                    block = utils.morph(new, old, trans)
+                    #block = utils.morph(new, old, trans)
+                    block = new * trans + old * (1 - trans)
 
                     # mixing L and R
-                    volume = utils.cc_rescale(self.data[getattr(config, 'CC_V{}'.format(i))].get(), 0, 1)
+                    volume = np.log10(1 + utils.cc_rescale(
+                        self.data[getattr(config, 'CC_V{}'.format(i))].get(), 0, 9))
+                                      
                     blockL += ((1 - MIX) * block.real + MIX * block.imag) * volume
                     blockR += ((1 - MIX) * block.imag + MIX * block.real) * volume
 

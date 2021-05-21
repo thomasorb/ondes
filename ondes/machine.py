@@ -6,6 +6,7 @@ from . import server
 from . import midi
 from . import synth
 from . import display
+from . import config
 
 class Machine(object):
 
@@ -17,9 +18,10 @@ class Machine(object):
         logging.info('processes init')
         self.processes = list()
         self.add_process('server', server.Server, (self.data,))
-        self.add_process('synth', synth.CubeSynth, (0, self.data, cubepath, dfpath))
-        self.add_process('synth', synth.CubeSynth, (1, self.data, cubepath, dfpath))
-        self.add_process('synth', synth.CubeSynth, (2, self.data, cubepath, dfpath))
+        for isynth in range(config.MAX_SYNTHS):
+            self.add_process('synth{}'.format(isynth),
+                             synth.CubeSynth,
+                             (isynth, self.data, cubepath, dfpath))
         
         self.add_process('midi', midi.Keyboard, (self.data,))
         self.add_process('display', display.CubeDisplay, (self.data, dfpath))

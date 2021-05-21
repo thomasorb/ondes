@@ -297,6 +297,8 @@ class Data(object):
         
         # timing logs
         self.add_timing_buffer('keyboard_loop_time', 100)
+        self.add_timing_buffer('keyboard_next_block_time', 100)
+        
         self.add_timing_buffer('server_callback_time', 100)
         
         

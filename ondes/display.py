@@ -91,7 +91,7 @@ class CubeDisplay(object):
 
         self.termfig, self.term_ax = pl.subplots(1,1, figsize=(7,5))
         self.termfig.patch.set_facecolor('black')
-        self.term_ax.text(0.35, 0.5, 'Close Me!', dict(size=30))
+        self.term_ax.text(0.35, 0.5, '', dict(size=30))
 
         pl.pause(0.5)
         self.image_background = self.imfig.canvas.copy_from_bbox(self.image_ax.bbox)
@@ -195,7 +195,12 @@ class CubeDisplay(object):
 
         def get_timing(name):
             _t = self.data.timing_buffers[name].get() * 1000.
-            return name + ' {:.2f}|{:.2f}|{:.2f} ms'.format(np.nanmedian(_t), np.nanmax(_t), np.nanmin(_t))
+            if not np.all(np.isnan(_t)):
+                return name + ' {:.2f}|{:.2f}|{:.2f} ms'.format(
+                    np.nanmedian(_t), np.nanmax(_t), np.nanmin(_t))
+            else:
+                return name
+            
         self.term_ax.cla()
         self.term_ax.set_facecolor('black')
         _s = list()
@@ -204,6 +209,7 @@ class CubeDisplay(object):
         for i in range(config.MAX_SYNTHS):
             _s.append(get_timing('synth_computation_time{}'.format(i)))
         _s.append(get_timing('keyboard_loop_time'))
+        _s.append(get_timing('keyboard_next_block_time'))
         _s.append(get_timing('server_callback_time'))
         self.term_ax.text(0., 0., '\n'.join(_s), color='white')
         #self.term_ax.relim()                  # recompute the data limits
