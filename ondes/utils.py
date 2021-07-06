@@ -26,13 +26,18 @@ def bpfilter(s, fmin, fmax, srate, width=100):
     return scipy.fft.ifft(sfft * w)
 
 def fastinterp1d(a, x):
+    """may interpolate 2D array along first axis"""
     assert np.all((0 <= x)  * (x <= len(a) - 1))
     xint = np.copy(x).astype(int)
     alow = a[xint]
     xint_high = xint + 1
     xint_high[xint + 1 >= len(a) - 1] = len(a) - 1
     ahigh = a[xint_high]
-    return alow + (ahigh - alow) * (x - xint)
+    if a.ndim == 1:
+        return alow + (ahigh - alow) * (x - xint)
+    elif a.ndim == 2:
+        return alow + (ahigh - alow) * (x - xint).reshape((x.size,1))
+    else: raise Exception('array must be 1d or 2d')
 
 def envelope(n, a, d, s, r):
     x = np.arange(n, dtype=float) / (n-1)

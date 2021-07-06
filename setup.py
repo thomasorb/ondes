@@ -14,13 +14,20 @@ with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
     
 extensions = [
- Extension(
-     "ondes.ccore",
-     [
-         "ondes/ccore.pyx"
-     ],
-     include_dirs=[numpy.get_include()]
- ),
+    Extension(
+        "ondes.ccore",
+        [
+            "ondes/ccore.pyx"
+        ],
+        include_dirs=[numpy.get_include()]
+    ),
+    Extension(
+        "ondes.cserver",
+        [
+            "ondes/cserver.pyx"
+        ],
+        include_dirs=[numpy.get_include()]
+    ),
 ]
 
 setup(
