@@ -56,7 +56,6 @@ print(out_data.shape)
 
 
 
-quit()
 in_data, srate = sf.read("../training/Radiohead - Kid A.wav", frames=44100*60, start=44100*60)
 if in_data.ndim == 2: 
     in_data = np.mean(in_data, axis=1)
@@ -100,7 +99,7 @@ def morph_files(path1, path2, frames=44100*60, start=44100*60):
     enc = (1-level_enc) * enc1 + level_enc * enc2
     
     #brain.data_phase = phase
-    brain.data_phase = phase
+    brain.data_phase = phase2
     return brain.decode(enc).T
 
 

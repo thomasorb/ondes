@@ -23,7 +23,7 @@ MAX_SAMPLE_LEN = int(16 * SAMPLERATE / BLOCKSIZE) # in blocks
 logging.info('max sample length: {:.2f} s'.format(MAX_SAMPLE_LEN * BLOCKTIME / 1000.))
 
 
-MAX_SYNTHS = 2
+MAX_SYNTHS = 3
 SYNTH_LOOP_TIME = 3 # s
 TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME # in samples
 
