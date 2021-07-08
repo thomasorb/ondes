@@ -4,6 +4,8 @@ import multiprocessing.sharedctypes
 import multiprocessing as mp
 import logging
 import time
+import pickle
+import atexit
 
 from . import config
 from . import utils
@@ -275,40 +277,62 @@ class Data(object):
         self.samples = dict()
 
         # add buffers
-        self.add_buffer('input')
-        self.add_buffer('synth')
+        #self.add_buffer('input')
+        #self.add_buffer('synth')
         
         # downsampled function for each synth (same stuff as a sample)
-        for isynth in range(config.MAX_SYNTHS):
-            self.add_sample('s{}'.format(isynth))
-            # x y
-            self.add_value('x{}'.format(isynth), 0)
-            self.add_value('y{}'.format(isynth), 0)
-            self.add_value('x_orig{}'.format(isynth), 0)
-            self.add_value('y_orig{}'.format(isynth), 0)
-            self.add_timing_buffer('synth_computation_time{}'.format(isynth), 30)
+        # for isynth in range(config.MAX_SYNTHS):
+        #     self.add_sample('s{}'.format(isynth))
+        #     # x y
+        #     self.add_value('x{}'.format(isynth), 0)
+        #     self.add_value('y{}'.format(isynth), 0)
+        #     self.add_value('x_orig{}'.format(isynth), 0)
+        #     self.add_value('y_orig{}'.format(isynth), 0)
+        #     self.add_timing_buffer('synth_computation_time{}'.format(isynth), 30)
 
 
-            # display arrays
-            self.add_array('display_spectrum{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
-            self.add_value('display_spectrum_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
-            self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
-            self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+        #     # display arrays
+        #     self.add_array('display_spectrum{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
+        #     self.add_value('display_spectrum_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+        #     self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
+        #     self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
         
         # timing logs
         self.add_timing_buffer('keyboard_loop_time', 100)
-        self.add_timing_buffer('keyboard_next_block_time', 100)
+        #self.add_timing_buffer('keyboard_next_block_time', 100)
         
         self.add_timing_buffer('server_callback_time', 100)
         
+
+        ## notes
+        for inote in range(127):
+            self.add_value('note{}'.format(inote), False)
         
         ## control change
-        self.add_value('cc16', config.CC16_DEFAULT)
-        self.add_value('cc17', config.CC17_DEFAULT)
-        self.add_value('cc18', config.CC18_DEFAULT)
-        self.add_value('cc19', config.CC19_DEFAULT)
-        self.add_value('cc20', config.CC20_DEFAULT)
-        self.add_value('cc21', config.CC21_DEFAULT)
+        cc_save = dict()
+        try:
+            with open('cc_save.pkl', 'rb') as f:
+                cc_save = pickle.load(f)
+        except Exception as e:
+            logging.warning('error during cc load: {}'.format(e))
+            
+        print(cc_save)
+        
+        self.ccs = list() # keep in a list for saving
+        for icc in config.CC_IN:
+            iccname = 'cc{}'.format(icc)
+            self.ccs.append(iccname)
+            if iccname in cc_save:
+                try:
+                    init_value = cc_save[iccname]
+                except Exception:
+                    logging.warning('{} not present in saved cc'.format(iccname))
+                    init_value = config.CC_IN[icc]
+            else:
+                init_value = config.CC_IN[icc]
+            self.add_value(iccname, init_value)
+
+        atexit.register(self.save_cc)
         
     def __getitem__(self, name):
         return getattr(self, name)
@@ -369,6 +393,19 @@ class Data(object):
 
     def get_sample(self, name):
         return self.samples[name].get_sample()
+
+    def save_cc(self):
+        try:
+            cc_save = dict()
+            for iname in self.ccs:
+                cc_save[iname] = self[iname].get()
+                
+            with open('cc_save.pkl', 'wb') as f:
+                pickle.dump(cc_save, f, pickle.HIGHEST_PROTOCOL)
+                
+        except Exception as e:
+            logging.warning('exception during cc saving: {}'.format(e))
+            
 
 
 def play_on_buffer(bufname, data, sample):

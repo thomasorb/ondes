@@ -10,21 +10,17 @@ from . import config
 
 class Machine(object):
 
-    def __init__(self, cubepath, dfpath):
+    def __init__(self, filepath, srate):
         
         logging.info('Shared memory init')
         self.data = core.Data()
 
         logging.info('processes init')
         self.processes = list()
-        self.add_process('server', server.Server, (self.data,))
-        for isynth in range(config.MAX_SYNTHS):
-            self.add_process('synth{}'.format(isynth),
-                             synth.CubeSynth,
-                             (isynth, self.data, cubepath, dfpath))
+        self.add_process('server', server.Server, (self.data, filepath, srate))
         
         self.add_process('midi', midi.Keyboard, (self.data,))
-        self.add_process('display', display.CubeDisplay, (self.data, dfpath))
+        #self.add_process('display', display.CubeDisplay, (self.data, dfpath))
         
 
         logging.info('starting processes')

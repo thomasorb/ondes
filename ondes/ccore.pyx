@@ -19,6 +19,23 @@ cdef int SAMPLERATE = <int> config.SAMPLERATE
 cdef int A_MIDIKEY = <int> config.A_MIDIKEY
 cdef int BASENOTE = <int> config.BASENOTE
 
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef fast_lowp(np.float32_t[:] a, int level):
+    cdef np.float32_t[::1] out = np.empty_like(a)
+    cdef float s
+    cdef int imin, imax
+    cdef int i, j
+    with nogil:
+        for i in range(a.shape[0]):
+            imin = max(i-level, 0)
+            imax = min(i+level+1, a.shape[0])
+            s = 0
+            for j in range(imin, imax):
+                s += a[j]
+            out[i] = s / <float> (imax - imin)
+    return out
 
 @cython.cdivision(True)
 @cython.boundscheck(False)

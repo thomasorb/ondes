@@ -3,7 +3,8 @@ import os
 import logging
 
 DEVICE = 'Steinberg UR22mkII'
-MIDIDEVICE = 'Akai MPD24'
+MIDIDEVICE = 'Steinberg UR22mkII'
+#MIDIDEVICE = 'Akai MPD24'
 
 BUFFERSIZE = 10 # number of blocks used for buffering
 BLOCKSIZE = 512 #768 # block size
@@ -47,12 +48,19 @@ CC_V1 = 'cc19'
 CC_V2 = 'cc20'
 CC_SOFTNESS = 'cc21'
 
-CC16_DEFAULT = 63
-CC17_DEFAULT = 127
-CC18_DEFAULT = 127
-CC19_DEFAULT = 127
-CC20_DEFAULT = 127
-CC21_DEFAULT = 63
+
+CC_IN = {
+    '1':0,
+    '2':127,
+    '3':63,
+    '4':0,
+    '5':0,
+    '6':127,
+    '7':63,
+    '8':127,
+    '33':0,
+    '34':0,
+    }
 
 XY = {
     0: (250, 250),
