@@ -11,6 +11,55 @@ from . import config
 from . import utils
 from . import ccore
 
+
+class RandomWalker(object):
+    
+    def __init__(self, dimx, dimy, ix, iy, stepsize, gravpower=2):
+
+        self.gravpower = gravpower
+        self.dimx = dimx
+        self.dimy = dimy
+        self.field = np.zeros((dimx, dimy))
+        self.grav_center = int(ix), int(iy)
+        self.ix, self.iy = int(ix), int(iy)
+        self.stepsize = 21
+        self.last_irand = None
+        self.last_p = None
+
+
+    def get_radius(self, x, y):
+        return np.sqrt(np.sum((np.array([x, y]).T - np.array(self.grav_center))**2, axis=-1))
+    
+    def get_proba(self, x, y):
+        xs, ys = np.mgrid[x-self.stepsize//2:x+self.stepsize//2+1,
+                          y-self.stepsize//2:y+self.stepsize//2+1,]
+        r = self.get_radius(xs.flatten(), ys.flatten()).reshape((self.stepsize, self.stepsize))
+        proba = 1 / (r**self.gravpower) # asymptotic freedom like strong interaction
+        proba -= proba.min()
+        proba[np.isinf(proba)] = 0
+        proba /= np.sum(proba)
+        return xs.flatten(), ys.flatten(), proba.flatten()
+
+    def get_next(self):
+        self.field[self.ix, self.iy] = 1
+        xs, ys, p = self.get_proba(self.ix, self.iy)
+        
+        if self.last_irand is not None:
+            p[self.last_irand] *= 300
+        
+        p[xs >= self.dimx] = 0
+        p[xs < 0] = 0
+        p[ys >= self.dimy] = 0
+        p[ys < 0] = 0
+        p = p.flatten()
+            
+        p /= np.sum(p)
+        irand = np.random.choice(np.arange(self.stepsize**2), size=1, p=p)
+        self.ix, self.iy = xs[irand], ys[irand]
+        self.last_irand = int(irand)
+        self.last_p = p.copy()
+        return int(self.ix), int(self.iy)
+
 class Server(object):
 
     def __init__(self, data, file_path, file_srate):
@@ -18,40 +67,70 @@ class Server(object):
         self.data = data
 
         # if 2D, must have shape (samples, channels)
-        self.filedata = np.load(file_path).astype(config.DTYPE)
-        logging.info('data shape: {}'.format(self.filedata.shape))
-        logging.info('data type: {}'.format(self.filedata.dtype))
+        self.basedata = np.abs(np.load(file_path).astype(config.DTYPE))
+        logging.info('data shape: {}'.format(self.basedata.shape))
+        logging.info('data type: {}'.format(self.basedata.dtype))
 
-        self.sampling_rate_factor = config.SAMPLERATE / file_srate
+        self.low_timing_resolution = False
+        self.rw = None
+        if self.basedata.ndim == 3: # sitelle data
 
-        # invert channels
-        self.filedata = self.filedata[:,::-1]
+            self.rw = RandomWalker(self.basedata.shape[0],
+                                   self.basedata.shape[1],
+                                   self.basedata.shape[0]//2,
+                                   self.basedata.shape[1]//2,
+                                   11) # step size
+            self.low_timing_resolution = True
+            self.filelen = 1000
+            self.nchans = 512
+            self.bins = np.linspace(0, self.basedata.shape[2]-1, self.nchans+1).astype(int)
+            self.bins_diff = np.diff(self.bins)
+            self.filedata = np.empty((self.filelen, self.nchans), dtype=config.DTYPE)
+
+            # load first N samples
+            for i in range(self.filelen):
+                self.filedata[i,:] = self.get_next()
             
-        self.filedata /= np.max(self.filedata)
+        elif self.basedata.ndim == 2: # radio data
+            self.filedata = self.basedata
+            if self.filedata.shape[1] > 128:
+                self.low_timing_resolution = True
+            self.filedata /= np.nanpercentile(self.filedata[:100,:], 99)
 
-        self.filedata = self.filedata[:self.filedata.shape[0] - (self.filedata.shape[0] % config.BLOCKSIZE),:]
-        logging.info('data shape (cut to blocksize): {}'.format(self.filedata.shape))
+            # invert channels
+            self.filedata = self.filedata[:,::-1]
+            # cut to blocksize
+            #self.filedata = self.filedata[:self.filedata.shape[0] - (self.filedata.shape[0] % config.BLOCKSIZE),:]
+            #logging.info('data shape (cut to blocksize): {}'.format(self.filedata.shape))
         
-        
-        
-        self.nchans = int(self.filedata.shape[1])
+            self.nchans = int(self.filedata.shape[1])
+            self.filelen = self.filedata.shape[0]
+            
+        else: raise Exception('bad input data')
 
-
+        if self.low_timing_resolution:
+            logging.warning('low timing resolution')
+        #assert self.filedata.shape[1] <= 128 # else, wave carriers will give have the same frequency since they are divided in 127 notes
+            
+        self.sampling_rate_factor = config.SAMPLERATE / file_srate            
+        
         zerosdata = np.zeros((config.BLOCKSIZE, 2), dtype=config.DTYPE)
             
         self.time_index = 0
         self.data_index = 0
+        self.last_loaded = 0
+        self.next_to_load = 0
         
         # init time matrix
-        self.time_matrix = np.zeros((config.BLOCKSIZE, self.nchans), dtype=config.DTYPE)
-        for ichan in range(self.nchans):
-            self.time_matrix[:,ichan] = np.arange(config.BLOCKSIZE) + np.random.uniform() * config.SAMPLERATE / config.FMIN
-            
+        self.time_matrix = np.ones(
+            (config.BLOCKSIZE, self.nchans),
+            dtype=config.DTYPE) * np.arange(config.BLOCKSIZE).reshape((config.BLOCKSIZE, 1))
+        
         def callback(outdata, frames, timing, status):
 
             def compute_interp_axis(data_index, sampling_rate_factor):
                 interp_axis = np.arange(config.BLOCKSIZE, dtype=float) / sampling_rate_factor + data_index
-                interp_axis = interp_axis % (self.filedata.shape[0] - 1)
+                interp_axis = interp_axis % (self.filelen - 1)
                 next_data_index = float(interp_axis[-1]) + (1 / sampling_rate_factor)
                 return interp_axis, next_data_index
 
@@ -68,19 +147,23 @@ class Server(object):
                 data = np.copy(zerosdata)
             else:
                 
-                cc_fmin = self.data['cc1'].get()
-                cc_frange = self.data['cc2'].get()
+                cc_notemin = self.data['cc1'].get()
+                cc_noterange = self.data['cc2'].get()
                 cc_srate = self.data['cc3'].get()
                 cc_bright = self.data['cc4'].get()
                 cc_lowpass = self.data['cc5'].get()
                 cc_pink = self.data['cc6'].get()
                 cc_chanc = self.data['cc7'].get()
                 cc_chanstd = self.data['cc8'].get()
+                #cc_harm_n = self.data['cc33'].get()
+                #cc_harm_step = self.data['cc34'].get()
+                #cc_harm_level = self.data['cc35'].get()
+                cc_volume = self.data['cc40'].get()
+                
                 #cc_fold_n = self.data['cc33'].get()
                 #cc_fold_delay = self.data['cc34'].get()
                 
-                #print(cc_fmin, cc_frange, cc_srate, cc_bright, cc_lowpass, cc_pink, cc_chanc, cc_chanstd)
-                
+                #print(cc_notemin, cc_noterange, cc_srate, cc_bright, cc_lowpass, cc_pink, cc_chanc, cc_chanstd)
                 try:
                     # channels selection
                     chanc = utils.cc_rescale(cc_chanc, 0, self.nchans - 1)
@@ -92,43 +175,59 @@ class Server(object):
                     chan_eq = np.exp(-(np.arange(self.nchans) - chanc)**2/(chanstd+0.5)**2)
 
                     # frequency range
-                    fmin = 20 * 10**utils.cc_rescale(cc_fmin, 0, 3)
-                    frange = 20 * 10**utils.cc_rescale(cc_frange, 0, 3)
-                    fmax = min(fmin + frange, config.FMAX)
+                    notemin = utils.cc_rescale(cc_notemin, 0, 127)
+                    noterange = utils.cc_rescale(cc_noterange, 0, 127)
+                    notemax = min(notemin + noterange, 127)
 
-                    # compute carrier waves
-                    carrier_matrix = np.copy(self.time_matrix[:,chanmin:chanmax]) + self.time_index
-                    freqs = 10**np.linspace(np.log10(fmin), np.log10(fmax), self.nchans).reshape((1, self.nchans))
-                    carrier_matrix *= 2 * np.pi * freqs[:, chanmin:chanmax] / config.SAMPLERATE 
-
-                    carrier_matrix = np.cos(carrier_matrix)
-
-                    sampling_rate_factor = self.sampling_rate_factor * 10**utils.cc_rescale(cc_srate, -1, 1)
+                    # compute interp axis
+                    sampling_rate_factor = self.sampling_rate_factor * 10**utils.cc_rescale(
+                        cc_srate, -1, 1)
                     
-                    interp_axis, self.data_index = compute_interp_axis(self.data_index, sampling_rate_factor)
+                    interp_axis, self.data_index = compute_interp_axis(
+                        self.data_index, sampling_rate_factor)
+
+                    if self.rw is not None:
+                        self.next_to_load = int(self.data_index + 2)
+                        if self.next_to_load == self.filelen - 1:
+                            self.next_to_load = 0
+                        if self.last_loaded != self.next_to_load:
+                            #self.filedata[self.next_to_load,:] = self.get_next()
+                            self.last_loaded = int(self.next_to_load)
+                            #print('loading', self.last_loaded, self.next_to_load)
+                    # compute carrier waves based on occidental notes
+
+                    notes = np.linspace(notemin, notemax, self.nchans)
+                    freqs = utils.note2f(notes, config.A_MIDIKEY).reshape((1, self.nchans))
                     
-                    filedata_block = utils.fastinterp1d(
-                        self.filedata[:,chanmin:chanmax], interp_axis)
+                    carrier_matrix = (self.time_matrix[:,chanmin:chanmax] + self.time_index) * 2 * np.pi * freqs[:, chanmin:chanmax] / config.SAMPLERATE 
 
-                    # folding
-                    # fold_n = int(utils.cc_rescale(cc_fold_n, 0, 60))
-                    # fold_delay = utils.cc_rescale(cc_fold_delay, 40, 50) # ms
-                    # fold_delay *= config.SAMPLERATE / sampling_rate_factor / 1000. # data samples
-                    # #next_data_index = float(self.data_index)
-                    # for i in range(fold_n):
-                    #     iinterp_axis, _ = compute_interp_axis(self.data_index + fold_delay * (i + 1), sampling_rate_factor)
-                    #     filedata_block += utils.fastinterp1d(
-                    #         self.filedata[:,chanmin:chanmax], iinterp_axis)
-                    # filedata_block /= fold_n + 1
-
-
+                    # if self.phase.shape[0] > 1:
+                    #     if self.low_timing_resolution:
+                    #         phase_block = utils.fastinterp1d(
+                    #             self.phase[:,chanmin:chanmax], interp_axis[:2])[0,:]
+                    #     else:
+                    #         phase_block = utils.fastinterp1d(
+                    #             self.phase[:,chanmin:chanmax], interp_axis)
+                    #     phase_block = self.phase[0,chanmin:chanmax]
+                    # else:
+                    #     phase_block = self.phase[:,chanmin:chanmax]
+                        
+                    carrier_matrix = np.cos(carrier_matrix)# + phase_block)
+                    
+                    if self.low_timing_resolution:
+                        filedata_block = utils.fastinterp1d(
+                            self.filedata[:,chanmin:chanmax], interp_axis[:2])[0,:]
+                    else:
+                      filedata_block = utils.fastinterp1d(
+                          self.filedata[:,chanmin:chanmax], interp_axis)  
+                        
                     # brightness
                     brightness = utils.cc_rescale(cc_bright, 0, 10)
                     filedata_block = filedata_block ** brightness
 
                     # matrix prod
                     carrier_matrix *= filedata_block
-
+                    
                     # equalizer
                     #noct = np.log(fmax/fmin) / np.log(2) # number of octaves
                     #pink_factor = utils.cc_rescale(cc_pink, -4, 0)
@@ -137,13 +236,18 @@ class Server(object):
                     carrier_matrix *= chan_eq[chanmin:chanmax] #* pink[chanmin:chanmax]
                     
                     # merge channels
-                    sound = np.mean(carrier_matrix, axis=1).astype(np.float32)
-
+                    sound = np.mean(carrier_matrix, axis=1)
+                    
                     # lowpass
                     lowpass = utils.cc_rescale(cc_lowpass, 0, 50)
                     if lowpass > 0:
-                        sound = ccore.fast_lowp(sound, lowpass)
+                        sound = np.array(ccore.fast_lowp(sound.astype(np.float32), lowpass))
                     
+                    # volume
+                    sound *= 10**utils.cc_rescale(cc_volume, -2, 2)
+
+                    # clip
+                    sound = np.clip(sound, -1, 1)
                     
                     data = np.zeros((config.BLOCKSIZE, 2), dtype=config.DTYPE)
                     data[:,0] = sound
@@ -202,3 +306,11 @@ class Server(object):
 
         logging.warning('device not found switching to default')
         return 'default'
+
+    def get_next(self):
+        if self.rw is None: raise Exception('random walker not initalised')
+        iix, iiy = self.rw.get_next()
+        v = self.basedata[iix,iiy,:]
+        vbin = np.add.reduceat(np.abs(v), self.bins)[:-1] / self.bins_diff
+        return vbin / np.max(vbin)
+            

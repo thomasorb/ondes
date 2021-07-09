@@ -7,7 +7,7 @@ MIDIDEVICE = 'Steinberg UR22mkII'
 #MIDIDEVICE = 'Akai MPD24'
 
 BUFFERSIZE = 10 # number of blocks used for buffering
-BLOCKSIZE = 512 #768 # block size
+BLOCKSIZE = 256 #768 # block size
 
 SAMPLERATE = 44100
 BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
@@ -60,6 +60,8 @@ CC_IN = {
     '8':127,
     '33':0,
     '34':0,
+    '35':0,
+    '40':63,
     }
 
 XY = {
@@ -69,6 +71,7 @@ XY = {
 }
 
 # pulseaudio -k && sudo alsa force-reload
+
 # reinstall also and pulseaudio
 # sudo dpkg --purge --force-depends pulseaudio alsa-base alsa-utils
 # sudo apt --fix-broken install

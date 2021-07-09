@@ -65,7 +65,7 @@ def bdpass(n, center, width):
     return lopass(n, (center+width)) * hipass(n, (center-width))
 
 def note2f(note, a_midikey):
-    return 440. / 2**(float(a_midikey - note) / 12.) / 2.
+    return 440. / 2**((a_midikey - note) / 12.) / 2.
 
 def note2shift(note, basenote, a_midikey):
     return max(note2f(basenote, a_midikey) / note2f(note, a_midikey), 1)
