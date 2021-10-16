@@ -281,24 +281,26 @@ class Data(object):
         #self.add_buffer('synth')
         
         # downsampled function for each synth (same stuff as a sample)
-        # for isynth in range(config.MAX_SYNTHS):
-        #     self.add_sample('s{}'.format(isynth))
-        #     # x y
-        #     self.add_value('x{}'.format(isynth), 0)
-        #     self.add_value('y{}'.format(isynth), 0)
-        #     self.add_value('x_orig{}'.format(isynth), 0)
-        #     self.add_value('y_orig{}'.format(isynth), 0)
-        #     self.add_timing_buffer('synth_computation_time{}'.format(isynth), 30)
+        for isynth in range(config.MAX_SYNTHS):
+            # self.add_sample('s{}'.format(isynth))
+            # # x y
+            self.add_value('x{}'.format(isynth), 0)
+            self.add_value('y{}'.format(isynth), 0)
+            self.add_value('x_orig{}'.format(isynth), 0)
+            self.add_value('y_orig{}'.format(isynth), 0)
+            # self.add_timing_buffer('synth_computation_time{}'.format(isynth), 30)
 
 
-        #     # display arrays
-        #     self.add_array('display_spectrum{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
-        #     self.add_value('display_spectrum_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
-        #     self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
-        #     self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+            # display arrays
+            self.add_array('display_spectrum{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
+            self.add_value('display_spectrum_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+            # self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
+            # self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+
+
         
         # timing logs
-        self.add_timing_buffer('keyboard_loop_time', 100)
+        self.add_timing_buffer('midi_loop_time', 100)
         #self.add_timing_buffer('keyboard_next_block_time', 100)
         
         self.add_timing_buffer('server_callback_time', 100)

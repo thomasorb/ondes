@@ -10,7 +10,7 @@ from . import config
 
 class Machine(object):
 
-    def __init__(self, filepath, srate):
+    def __init__(self, filepath, srate, dfpath):
         
         logging.info('Shared memory init')
         self.data = core.Data()
@@ -20,7 +20,9 @@ class Machine(object):
         self.add_process('server', server.Server, (self.data, filepath, srate))
         
         self.add_process('midi', midi.Keyboard, (self.data,))
-        #self.add_process('display', display.CubeDisplay, (self.data, dfpath))
+
+        if dfpath is not None:
+            self.add_process('display', display.CubeDisplay, (self.data, dfpath))
         
 
         logging.info('starting processes')

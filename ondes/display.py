@@ -17,7 +17,7 @@ class SynthData(object):
         self.xyline = None
         self.xyscatter = None
         self.spectrum = None
-        self.sample = None
+        #self.sample = None
         
     def add_xy(self, new_x, new_y):
         if len(self.x) == 0 or new_x != self.x[-1] or new_y != self.y[-1]:
@@ -76,15 +76,15 @@ class CubeDisplay(object):
         
         
         index = 0
-        self.sample_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
-        index += SPECSIZE
+        #self.sample_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        #index += SPECSIZE
         self.spectrum_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
         index += SPECSIZE
-        self.power_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        #self.power_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
         
         self.spectrum_ax.plot(np.zeros(100))
-        self.sample_ax.plot(np.zeros(100))
-        self.power_ax.plot(np.zeros(100))
+        #self.sample_ax.plot(np.zeros(100))
+        #self.power_ax.plot(np.zeros(100))
         
         self.imfig.show()
 
@@ -106,7 +106,7 @@ class CubeDisplay(object):
         while True:
             for i in range(config.MAX_SYNTHS):        
                 self.synths[i].spectrum = self.data['display_spectrum{}'.format(i)][:self.data['display_spectrum_len{}'.format(i)].get()]
-                self.synths[i].sample = self.data['display_sample{}'.format(i)][:self.data['display_sample_len{}'.format(i)].get()]
+                #self.synths[i].sample = self.data['display_sample{}'.format(i)][:self.data['display_sample_len{}'.format(i)].get()]
                 
             self.redraw_plots()
             self.redraw_on_image()
@@ -153,23 +153,23 @@ class CubeDisplay(object):
         
     def redraw_plots(self):
         spectra = list()
-        samples = list()
-        powersp = list()
-        powaxes = list()
+        #samples = list()
+        #powersp = list()
+        #powaxes = list()
         for i in range(config.MAX_SYNTHS):
             if self.synths[i].spectrum is not None:
                 spectra.append(self.synths[i].spectrum)
-            if self.synths[i].sample is not None:
-                samples.append(self.synths[i].sample)
-                iaxis, ipow = utils.power_spectrum(self.synths[i].sample, config.SAMPLERATE)
-                powersp.append(ipow)
-                powaxes.append(iaxis)
+            #if self.synths[i].sample is not None:
+            #    samples.append(self.synths[i].sample)
+            #    iaxis, ipow = utils.power_spectrum(self.synths[i].sample, config.SAMPLERATE)
+            #    powersp.append(ipow)
+            #    powaxes.append(iaxis)
                 
         if len(spectra) > 0:
             self.redraw_plot(self.spectrum_ax, spectra, 'spectrum')
-        if len(samples) > 0:
-            self.redraw_plot(self.sample_ax, samples, 'sample')
-            self.redraw_plot(self.power_ax, powersp, 'power spectrum', xlim=(20, 20000), log=True, axis=powaxes)
+        # if len(samples) > 0:
+        #     self.redraw_plot(self.sample_ax, samples, 'sample')
+        #     self.redraw_plot(self.power_ax, powersp, 'power spectrum', xlim=(20, 20000), log=True, axis=powaxes)
 
                 
         
@@ -206,11 +206,14 @@ class CubeDisplay(object):
         _s = list()
         _s.append('blocktime (latency) {:.2f} ms'.format(config.BLOCKTIME))
 
-        for i in range(config.MAX_SYNTHS):
-            _s.append(get_timing('synth_computation_time{}'.format(i)))
-        _s.append(get_timing('keyboard_loop_time'))
-        _s.append(get_timing('keyboard_next_block_time'))
+        #for i in range(config.MAX_SYNTHS):
+        #    _s.append(get_timing('synth_computation_time{}'.format(i)))
+        _s.append(get_timing('midi_loop_time'))
+        #_s.append(get_timing('keyboard_next_block_time'))
         _s.append(get_timing('server_callback_time'))
+        _s.append('xy {} {}'.format(
+            self.data['x0'].get(),
+            self.data['y0'].get()))
         self.term_ax.text(0., 0., '\n'.join(_s), color='white')
         #self.term_ax.relim()                  # recompute the data limits
         #self.term_ax.autoscale_view()         # automatic axis scaling

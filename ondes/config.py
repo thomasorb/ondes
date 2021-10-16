@@ -6,8 +6,8 @@ DEVICE = 'Steinberg UR22mkII'
 MIDIDEVICE = 'Steinberg UR22mkII'
 #MIDIDEVICE = 'Akai MPD24'
 
-BUFFERSIZE = 10 # number of blocks used for buffering
-BLOCKSIZE = 256 #768 # block size
+BUFFERSIZE = 30 # number of blocks used for buffering
+BLOCKSIZE = 768 #768 # block size
 
 SAMPLERATE = 44100
 BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
@@ -24,9 +24,9 @@ MAX_SAMPLE_LEN = int(16 * SAMPLERATE / BLOCKSIZE) # in blocks
 logging.info('max sample length: {:.2f} s'.format(MAX_SAMPLE_LEN * BLOCKTIME / 1000.))
 
 
-MAX_SYNTHS = 3
-SYNTH_LOOP_TIME = 3 # s
-TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME # in samples
+MAX_SYNTHS = 1
+#SYNTH_LOOP_TIME = 3 # s
+#TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME # in samples
 
 VOLUME_ADJUST = 10.
 BASENOTE = 102
@@ -62,6 +62,7 @@ CC_IN = {
     '34':0,
     '35':0,
     '40':63,
+    '89':0,
     }
 
 XY = {

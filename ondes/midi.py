@@ -52,7 +52,7 @@ class Keyboard(object):
                     else:
                         print(msg.control)
                         
-            self.data.timing_buffers['keyboard_loop_time'].put(time.time() - stime)
+            self.data.timing_buffers['midi_loop_time'].put(time.time() - stime)
         self.inport.close()
                 
     def get_device(self):
