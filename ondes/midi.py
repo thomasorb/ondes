@@ -56,7 +56,7 @@ class Keyboard(object):
         self.inport.close()
                 
     def get_device(self):
-        devices = mido.get_output_names()
+        devices = mido.get_input_names()
         logging.info('midi devices:\n{}'.format('\n  '.join(devices)))
         for device in devices:
             if config.MIDIDEVICE in device:
