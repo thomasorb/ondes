@@ -154,20 +154,19 @@ class Server(object):
             assert frames == config.BLOCKSIZE                
 
 
-            cc_notemin = self.data['cc1'].get()
-            cc_noterange = self.data['cc2'].get()
-            cc_srate = self.data['cc3'].get()
-            cc_bright = self.data['cc4'].get()
-            cc_lowpass = self.data['cc5'].get()
-            cc_pink = self.data['cc6'].get()
-            cc_chanc = self.data['cc7'].get()
-            cc_chanstd = self.data['cc8'].get()
+            cc_notemin = self.data['cc16'].get()
+            cc_noterange = self.data['cc17'].get()
+            cc_srate = self.data['cc18'].get()
+            cc_bright = self.data['cc19'].get()
+            #cc_lowpass = self.data['cc20'].get()
+            #cc_pink = self.data['cc21'].get()
+            cc_chanc = self.data['cc22'].get()
+            cc_chanstd = self.data['cc23'].get()
             #cc_harm_n = self.data['cc33'].get()
             #cc_harm_step = self.data['cc34'].get()
             #cc_harm_level = self.data['cc35'].get()
-            cc_volume = self.data['cc40'].get()
-            cc_rec = self.data['cc89'].get()
-                
+            cc_volume = self.data['cc0'].get()
+            cc_rec = self.data['cc45'].get()
             # get output
             if status.output_underflow:
                 logging.warn('Output underflow: increase blocksize?')

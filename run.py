@@ -14,7 +14,7 @@ machine = ondes.machine.Machine(cubepath, 0.3, dfpath)
 
 
 #machine = ondes.machine.Machine('/home/thomas/Astro/Interférences/sources/1968/Jodrell Bank (Mitchell Mickaliger)/59329_75673_B0531 21_000000.fil.npy', 15625, None)
-#machine = ondes.machine.Machine('/home/thomas/Astro/Interférences/sources/1968/Jodrell Bank (Mitchell Mickaliger)/59329_75073_B0329 54_000002.fil.npy', 9500)
-#machine = ondes.machine.Machine('/home/thomas/Astro/Interférences/sources/1968/Jodrell Bank (Mitchell Mickaliger)/59329_37387_B1933 16_000002.fil.npy', 9500)
+##machine = ondes.machine.Machine('/home/thomas/Astro/Interférences/sources/1968/Jodrell Bank (Mitchell Mickaliger)/59329_75073_B0329 54_000002.fil.npy', 9500)
+##machine = ondes.machine.Machine('/home/thomas/Astro/Interférences/sources/1968/Jodrell Bank (Mitchell Mickaliger)/59329_37387_B1933 16_000002.fil.npy', 9500)
 
 

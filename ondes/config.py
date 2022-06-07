@@ -3,7 +3,9 @@ import os
 import logging
 
 DEVICE = 'Steinberg UR22mkII'
-MIDIDEVICE = 'Steinberg UR22mkII'
+#DEVICE = 'front'
+#MIDIDEVICE = 'Steinberg UR22mkII'
+MIDIDEVICE = 'nanoKONTROL2'
 #MIDIDEVICE = 'Akai MPD24'
 
 BUFFERSIZE = 30 # number of blocks used for buffering
@@ -41,28 +43,21 @@ FMIN = 20 # min frequency in Hz
 FMAX = 20000 # max frequency in Hz
 
 
-CC_SHIFT = 'cc16'
-CC_BITS = 'cc17'
-CC_V0 = 'cc18'
-CC_V1 = 'cc19'
-CC_V2 = 'cc20'
-CC_SOFTNESS = 'cc21'
-
-
+# define CC inputs and their defaults values
 CC_IN = {
-    '1':0,
-    '2':127,
-    '3':63,
-    '4':0,
-    '5':0,
-    '6':127,
-    '7':63,
-    '8':127,
-    '33':0,
+    '16':0,
+    '17':127,
+    '18':63,
+    '19':0,
+    '20':0,
+    '21':127,
+    '22':63,
+    '23':127,
+    '0':0,
     '34':0,
     '35':0,
     '40':63,
-    '89':0,
+    '45':0,
     }
 
 XY = {
