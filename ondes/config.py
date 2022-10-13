@@ -2,8 +2,7 @@ import numpy as np
 import os
 import logging
 
-#DEVICE = 'MacBook Pro Speakers'
-DEVICE = 'EVO8'
+DEVICE = 'Steinberg UR22mkII'
 #DEVICE = 'front'
 #MIDIDEVICE = 'Steinberg UR22mkII'
 
