@@ -1,5 +1,8 @@
 import numpy as np
-import pylab as pl
+#import pylab as pl
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as pl
 import matplotlib.gridspec
 import scipy.fft
 import time
