@@ -21,9 +21,10 @@ class Machine(object):
         
         self.add_process('midi', midi.Keyboard, (self.data,))
 
+        print('---------------------')
         if dfpath is not None:
             self.add_process('display', display.CubeDisplay, (self.data, dfpath))
-        
+
 
         logging.info('starting processes')
         for iproc in self.processes:
