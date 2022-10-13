@@ -106,7 +106,8 @@ class CubeDisplay(object):
         while True:
             for i in range(config.MAX_SYNTHS):        
                 self.synths[i].spectrum = self.data['display_spectrum{}'.format(i)][:self.data['display_spectrum_len{}'.format(i)].get()]
-                #self.synths[i].sample = self.data['display_sample{}'.format(i)][:self.data['display_sample_len{}'.format(i)].get()]
+                self.synths[i].scatterx = self.data['display_scatterx{}'.format(i)][:self.data['display_scatter_len{}'.format(i)].get()]
+                self.synths[i].scattery = self.data['display_scattery{}'.format(i)][:self.data['display_scatter_len{}'.format(i)].get()]
                 
             self.redraw_plots()
             self.redraw_on_image()
@@ -131,10 +132,11 @@ class CubeDisplay(object):
         ax.set_facecolor('black')
         for i in range(len(data)):
             if axis is None:
-                ax.plot(data[i], c=self.colors[i], label=title, alpha=0.5)
+                ax.plot(data[i][0], c=self.colors[i], label=title, alpha=0.5)                
             else:
-                ax.plot(axis[i], data[i], c=self.colors[i], label=title, alpha=0.5)
-            ax.lines[i].set_data(np.arange(np.size(data[i])), data[i]) # set plot data
+                ax.plot(axis[i], data[i][0], c=self.colors[i], label=title, alpha=0.5)
+            ax.scatter(data[i][1], data[i][2], c=self.colors[i], label=title, alpha=0.5, marker='+')
+            #ax.lines[i].set_data(np.arange(np.size(data[i][0])), data[i][0]) # set plot data
         ax.relim()                  # recompute the data limits
         ax.autoscale_view()         # automatic axis scaling
         if xlim is not None:
@@ -158,7 +160,8 @@ class CubeDisplay(object):
         #powaxes = list()
         for i in range(config.MAX_SYNTHS):
             if self.synths[i].spectrum is not None:
-                spectra.append(self.synths[i].spectrum)
+                spectra.append((self.synths[i].spectrum, self.synths[i].scatterx, self.synths[i].scattery))
+                
             #if self.synths[i].sample is not None:
             #    samples.append(self.synths[i].sample)
             #    iaxis, ipow = utils.power_spectrum(self.synths[i].sample, config.SAMPLERATE)

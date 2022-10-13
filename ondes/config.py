@@ -6,26 +6,31 @@ DEVICE = 'Steinberg UR22mkII'
 #DEVICE = 'front'
 #MIDIDEVICE = 'Steinberg UR22mkII'
 
-MIDIDEVICES = ('nanoKONTROL2', 'Akai MPD24')
+MIDIDEVICES = ('nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
 
-BUFFERSIZE = 3 # number of blocks used for buffering
-BLOCKSIZE = 256 #768 # block size
+#BUFFERSIZE = 10 # number of blocks used for buffering
+#BLOCKSIZE = 384 #768 # block size # warning BLOCKSIZE is not really used anymore
+#BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
+#LATENCY = BLOCKTIME * BUFFERSIZE
 
+LATENCY = 30 # ms
 SAMPLERATE = 44100
-BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
-LATENCY = BLOCKTIME * BUFFERSIZE
+BUFFERSIZE = int(LATENCY / 1000 * SAMPLERATE) + 1
+NCHANNELS = 48 # number of most significant channels
+
+
 logging.info('sample rate: {} Hz'.format(SAMPLERATE))
 logging.info('latency: {:.2f} ms'.format(LATENCY))
+logging.info('buffersize: {} frames'.format(BUFFERSIZE))
 
-NCHANNELS = 32 # number of most significant channels
 
 DTYPE = np.float32
 COMPLEX_DTYPE = np.complex64
-SLEEPTIME = BLOCKTIME / 1000. / 10.
+SLEEPTIME = LATENCY / 10000.
 
-MAX_SAMPLES = 3 # samples + max notes played per synth
-MAX_SAMPLE_LEN = int(16 * SAMPLERATE / BLOCKSIZE) # in blocks
-logging.info('max sample length: {:.2f} s'.format(MAX_SAMPLE_LEN * BLOCKTIME / 1000.))
+#MAX_SAMPLES = 3 # samples + max notes played per synth
+#MAX_SAMPLE_LEN = int(16 * SAMPLERATE / BLOCKSIZE) # in blocks
+#logging.info('max sample length: {:.2f} s'.format(MAX_SAMPLE_LEN * BLOCKTIME / 1000.))
 
 
 MAX_SYNTHS = 1
@@ -35,14 +40,18 @@ MAX_SYNTHS = 1
 MAX_ATTACK_TIME = 100. # in ms.
 MAX_RELEASE_TIME = 1000. # in ms.
 VOLUME_ADJUST = 10.
-VELOCITY_SCALE = 10. # impact of velocity on note volume
-BASENOTE = 56
+VELOCITY_SCALE = 50. # impact of velocity on note volume, the higher the higher the sound on low velocity
+BASENOTE = 60
 A_MIDIKEY = 45
 PADNOTE_SHIFT = -36
+POLYPHONY_VOLUME_ADJUST = 8 # volume of each note is divided by 15 to avoid audio > 1 when multpiple notes are stacked together
+
+TRANS_SIZE = 15
+TRANS_RELEASE = 5 # s
+
 
 MAX_DISPLAY_SIZE = 20000
 BINNING = 4
-
 
 FMIN = 20 # min frequency in Hz
 FMAX = 20000 # max frequency in Hz
@@ -58,7 +67,11 @@ CC_MATRIX = {
     'attack_time': (0,22,64),
     'release_time': (0,23,64),
     'volume': (0,0,63),
-    'rec': (0,45,0)
+    'trans_presence': (0,1,0),
+    'trans_release': (0,2,64),
+    'rec': (0,45,0),
+    'keep': (0,41,0),
+    'unkeep': (0,40,0)
     }
 
 

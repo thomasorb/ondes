@@ -50,8 +50,12 @@ class Keyboard(object):
             for icontrol in range(len(self.controllers)):
                 for msg in self.controllers[icontrol].iter_pending():
                     if msg.type == 'note_on':
-                        self.data['note{}'.format(msg.note)].set(True)
-                        self.data['vel{}'.format(msg.note)].set(msg.velocity)                
+                        if msg.velocity > 0:
+                            self.data['note{}'.format(msg.note)].set(True)
+                            self.data['vel{}'.format(msg.note)].set(msg.velocity)
+                        else: # interpreted as note off
+                            self.data['note{}'.format(msg.note)].set(False)
+                        
                     elif msg.type == 'note_off':
                         self.data['note{}'.format(msg.note)].set(False)
                     elif msg.type == 'aftertouch':
@@ -61,10 +65,9 @@ class Keyboard(object):
                         #         ikeys.set_volume(msg.value / 127.)
                     elif msg.type == 'control_change':
                         if msg.control in registered_ccs[icontrol]:
-                            
                             self.data['cc_{}'.format(registered_ccs[icontrol][msg.control])].set(msg.value)
-                        #else:
-                        #    print(msg.control)
+                        elif not msg.value:
+                            logging.info('unregisterd input {}'.format(msg.control))
                         
             self.data.timing_buffers['midi_loop_time'].put(time.time() - stime)
         for icontrol in self.controllers:
