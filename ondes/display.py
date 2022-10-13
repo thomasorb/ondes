@@ -204,7 +204,7 @@ class CubeDisplay(object):
         self.term_ax.cla()
         self.term_ax.set_facecolor('black')
         _s = list()
-        _s.append('blocktime (latency) {:.2f} ms'.format(config.BLOCKTIME))
+        _s.append('blocktime (latency) {:.2f} ms'.format(config.LATENCY))
 
         #for i in range(config.MAX_SYNTHS):
         #    _s.append(get_timing('synth_computation_time{}'.format(i)))

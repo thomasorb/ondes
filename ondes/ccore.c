@@ -3973,15 +3973,15 @@ static PyObject *__pyx_pf_5ondes_5ccore_4dither(CYTHON_UNUSED PyObject *__pyx_se
 static PyObject *__pyx_pw_5ondes_5ccore_7fast_interp1d(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_a, __Pyx_memviewslice __pyx_v_x, CYTHON_UNUSED int __pyx_skip_dispatch, struct __pyx_opt_args_5ondes_5ccore_fast_interp1d *__pyx_optional_args) {
   PyObject *__pyx_v_dirty = ((PyObject *)Py_False);
-  CYTHON_UNUSED int __pyx_v_N;
+  int __pyx_v_N;
   int __pyx_v_i;
   float __pyx_v_r;
   int __pyx_v_xint;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
-  Py_ssize_t __pyx_t_2;
-  Py_ssize_t __pyx_t_3;
+  int __pyx_t_2;
+  int __pyx_t_3;
   int __pyx_t_4;
   Py_ssize_t __pyx_t_5;
   Py_ssize_t __pyx_t_6;
@@ -4011,7 +4011,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *     cdef int xint
  *     if dirty:             # <<<<<<<<<<<<<<
  *         with nogil:
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  */
   __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_dirty); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 96, __pyx_L1_error)
   if (__pyx_t_1) {
@@ -4020,7 +4020,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *     cdef int xint
  *     if dirty:
  *         with nogil:             # <<<<<<<<<<<<<<
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 x[i] = a[<int> x[i]]
  */
     {
@@ -4034,18 +4034,18 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
           /* "ondes/ccore.pyx":98
  *     if dirty:
  *         with nogil:
- *             for i in range(x.shape[0]):             # <<<<<<<<<<<<<<
+ *             for i in range(N):             # <<<<<<<<<<<<<<
  *                 x[i] = a[<int> x[i]]
  *     else:
  */
-          __pyx_t_2 = (__pyx_v_x.shape[0]);
+          __pyx_t_2 = __pyx_v_N;
           __pyx_t_3 = __pyx_t_2;
           for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
             __pyx_v_i = __pyx_t_4;
 
             /* "ondes/ccore.pyx":99
  *         with nogil:
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 x[i] = a[<int> x[i]]             # <<<<<<<<<<<<<<
  *     else:
  *         with nogil:
@@ -4061,7 +4061,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *     cdef int xint
  *     if dirty:
  *         with nogil:             # <<<<<<<<<<<<<<
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 x[i] = a[<int> x[i]]
  */
         /*finally:*/ {
@@ -4081,7 +4081,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *     cdef int xint
  *     if dirty:             # <<<<<<<<<<<<<<
  *         with nogil:
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  */
     goto __pyx_L3;
   }
@@ -4090,7 +4090,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *                 x[i] = a[<int> x[i]]
  *     else:
  *         with nogil:             # <<<<<<<<<<<<<<
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 xint = <int> x[i]
  */
   /*else*/ {
@@ -4105,18 +4105,18 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
           /* "ondes/ccore.pyx":102
  *     else:
  *         with nogil:
- *             for i in range(x.shape[0]):             # <<<<<<<<<<<<<<
+ *             for i in range(N):             # <<<<<<<<<<<<<<
  *                 xint = <int> x[i]
  *                 r = x[i] - <float> xint
  */
-          __pyx_t_2 = (__pyx_v_x.shape[0]);
+          __pyx_t_2 = __pyx_v_N;
           __pyx_t_3 = __pyx_t_2;
           for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
             __pyx_v_i = __pyx_t_4;
 
             /* "ondes/ccore.pyx":103
  *         with nogil:
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 xint = <int> x[i]             # <<<<<<<<<<<<<<
  *                 r = x[i] - <float> xint
  *                 x[i] = r * a[xint] + (1-r) * a[xint+1]
@@ -4125,7 +4125,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
             __pyx_v_xint = ((int)(*((__pyx_t_5numpy_float32_t *) ( /* dim=0 */ (__pyx_v_x.data + __pyx_t_5 * __pyx_v_x.strides[0]) ))));
 
             /* "ondes/ccore.pyx":104
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 xint = <int> x[i]
  *                 r = x[i] - <float> xint             # <<<<<<<<<<<<<<
  *                 x[i] = r * a[xint] + (1-r) * a[xint+1]
@@ -4152,7 +4152,7 @@ static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_
  *                 x[i] = a[<int> x[i]]
  *     else:
  *         with nogil:             # <<<<<<<<<<<<<<
- *             for i in range(x.shape[0]):
+ *             for i in range(N):
  *                 xint = <int> x[i]
  */
         /*finally:*/ {

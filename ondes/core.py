@@ -309,6 +309,7 @@ class Data(object):
         ## notes
         for inote in range(127):
             self.add_value('note{}'.format(inote), False)
+            self.add_value('vel{}'.format(inote), 64)
         
         ## control change
         cc_save = dict()
@@ -318,20 +319,18 @@ class Data(object):
         except Exception as e:
             logging.warning('error during cc load: {}'.format(e))
             
-        print(cc_save)
-        
         self.ccs = list() # keep in a list for saving
-        for icc in config.CC_IN:
-            iccname = 'cc{}'.format(icc)
+        for icc in config.CC_MATRIX:
+            iccname = 'cc_{}'.format(icc)
             self.ccs.append(iccname)
             if iccname in cc_save:
                 try:
                     init_value = cc_save[iccname]
                 except Exception:
                     logging.warning('{} not present in saved cc'.format(iccname))
-                    init_value = config.CC_IN[icc]
+                    init_value = config.CC_MATRIX[icc][2]
             else:
-                init_value = config.CC_IN[icc]
+                init_value = config.CC_MATRIX[icc][2]
             self.add_value(iccname, init_value)
 
         atexit.register(self.save_cc)

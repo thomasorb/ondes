@@ -95,11 +95,11 @@ cpdef fast_interp1d(np.float32_t[:] a, np.float32_t[:] x, dirty=False):
     cdef int xint
     if dirty:
         with nogil:
-            for i in range(x.shape[0]):
+            for i in range(N):
                 x[i] = a[<int> x[i]]
     else:
         with nogil:
-            for i in range(x.shape[0]):
+            for i in range(N):
                 xint = <int> x[i]
                 r = x[i] - <float> xint
                 x[i] = r * a[xint] + (1-r) * a[xint+1]

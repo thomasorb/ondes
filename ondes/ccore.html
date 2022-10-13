@@ -1156,7 +1156,7 @@ struct __pyx_opt_args_5ondes_5ccore_dither {
 <pre class='cython code score-39 '>static PyObject *__pyx_pw_5ondes_5ccore_7fast_interp1d(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static PyObject *__pyx_f_5ondes_5ccore_fast_interp1d(__Pyx_memviewslice __pyx_v_a, __Pyx_memviewslice __pyx_v_x, CYTHON_UNUSED int __pyx_skip_dispatch, struct __pyx_opt_args_5ondes_5ccore_fast_interp1d *__pyx_optional_args) {
   PyObject *__pyx_v_dirty = ((PyObject *)Py_False);
-  CYTHON_UNUSED int __pyx_v_N;
+  int __pyx_v_N;
   int __pyx_v_i;
   float __pyx_v_r;
   int __pyx_v_xint;
@@ -1322,8 +1322,8 @@ struct __pyx_opt_args_5ondes_5ccore_fast_interp1d {
           __pyx_L6:;
         }
     }
-</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">098</span>:             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mf">0</span><span class="p">]):</span></pre>
-<pre class='cython code score-0 '>          __pyx_t_2 = (__pyx_v_x.shape[0]);
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">098</span>:             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span></pre>
+<pre class='cython code score-0 '>          __pyx_t_2 = __pyx_v_N;
           __pyx_t_3 = __pyx_t_2;
           for (__pyx_t_4 = 0; __pyx_t_4 &lt; __pyx_t_3; __pyx_t_4+=1) {
             __pyx_v_i = __pyx_t_4;
@@ -1358,8 +1358,8 @@ struct __pyx_opt_args_5ondes_5ccore_fast_interp1d {
     }
   }
   __pyx_L3:;
-</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">102</span>:             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mf">0</span><span class="p">]):</span></pre>
-<pre class='cython code score-0 '>          __pyx_t_2 = (__pyx_v_x.shape[0]);
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">102</span>:             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span></pre>
+<pre class='cython code score-0 '>          __pyx_t_2 = __pyx_v_N;
           __pyx_t_3 = __pyx_t_2;
           for (__pyx_t_4 = 0; __pyx_t_4 &lt; __pyx_t_3; __pyx_t_4+=1) {
             __pyx_v_i = __pyx_t_4;

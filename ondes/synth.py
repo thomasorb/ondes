@@ -169,8 +169,8 @@ class CubeSynth(object):
             self.data['display_spectrum{}'.format(int(index))][:len(spectrum_to_draw)] = spectrum_to_draw.real.astype(config.DTYPE)
             self.data['display_spectrum_len{}'.format(int(index))].set(len(spectrum_to_draw))
             
-            spectrum = np.roll(spectrum, int(spectrum.shape[0] * self.p.spectrum_roll()))
-            spectrum = utils.equalize_spectrum(spectrum, self.p.eq_power())
+            #spectrum = np.roll(spectrum, int(spectrum.shape[0] * self.p.spectrum_roll()))
+            #spectrum = utils.equalize_spectrum(spectrum, self.p.eq_power())
             
             if self.p.innerpad():
                 maxfreq = self.p.fmin() + self.p.frange()

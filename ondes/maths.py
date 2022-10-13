@@ -1,6 +1,8 @@
 import numpy as np
 
 def compress(data, threshold, level):
+    """for an effective compression, threshold must be smaller than level. Knee is at (threshold, level).
+    """
     return np.where(
         np.abs(data) < threshold,
         data * level / threshold,

@@ -53,6 +53,20 @@ def resample(data, samplef):
         new_data.append(utils.fastinterp1d(data[:,ich], samplef))
     return np.array(new_data).T
 
+
+def get_samplingf(n, start, end):
+    """Return a sampling function which goes linearly from start factor to end factor"""
+    assert start > 0
+    assert end > 0
+    p = 1/start
+    q = 1/end
+    # compute final number of samples
+    N = int((n-1)/((q-p)/2 + p))
+    m = (q-p)/N
+    ssteps = (m * np.arange(N) + p)
+    f = np.cumsum(ssteps)
+    return f
+
 def shift(data, note):
     fratio = utils.note2f(0, config.A_MIDIKEY) / utils.note2f(note, config.A_MIDIKEY)
     return resample(data, fratio)

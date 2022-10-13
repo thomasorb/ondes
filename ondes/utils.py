@@ -34,9 +34,9 @@ def fastinterp1d(a, x):
     xint_high[xint + 1 >= len(a) - 1] = len(a) - 1
     ahigh = a[xint_high]
     if a.ndim == 1:
-        return alow + (ahigh - alow) * (x - xint)
+        return alow + (ahigh - alow) * np.array((x - xint), dtype=a.dtype)
     elif a.ndim == 2:
-        return alow + (ahigh - alow) * (x - xint).reshape((x.size,1))
+        return alow + (ahigh - alow) * np.array((x - xint).reshape((x.size,1)), dtype=a.dtype)
     else: raise Exception('array must be 1d or 2d')
 
 def envelope(n, a, d, s, r):
@@ -198,3 +198,17 @@ def morph(a1, a2, mix):
     return scipy.fft.ifft(
         scipy.fft.fft(a1, axis=0) * mix
         + scipy.fft.fft(a2, axis=0) * (1 - mix), axis=0)
+
+
+def cut(s, srate, starttime, stoptime):
+    if starttime >= stoptime: raise Exception('starttime >= stoptime')
+    if starttime < 0: raise Exception('starttime < 0')
+    n = len(s)
+    start = int(starttime * srate)
+    stop = int(stoptime * srate) + 1
+    if start >= n: raise Exception('start time exceed sample length')
+    if stop >= n: stop = n-1
+    return s[start:stop,:]
+    
+    
+    

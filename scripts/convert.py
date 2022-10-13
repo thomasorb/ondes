@@ -4,9 +4,9 @@ import orb.cube
 import orb.utils.image
 from orb.core import ProgressBar
 
-cube = orb.cube.SpectralCube('/home/thomas/MEDIA/Crabnebula_SN3.merged.cm1.1.0.hdf5')
+cube = orb.cube.SpectralCube('/media/thomas/DATA/local_celeste/Crab-nebula_SN2.merged.cm1.1.0.hdf5')
 binning = 4
-outpath = 'out.npy'
+outpath = 'out.sn2.npy'
 
 zmin, zmax = cube.get_filter_range_pix(border_ratio=0.05).astype(int)
 
