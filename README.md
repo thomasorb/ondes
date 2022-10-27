@@ -37,7 +37,9 @@ sudo apt install build-essential
 ## Install rtmidi
 On Ubuntu 20.04+:
 ```bash
-python3-rtmidi
+sudo apt install libasound2-dev libjack-jackd2-dev
+conda activate music
+pip install python-rtmidi
 ```
 
 On MacOS Darwin
