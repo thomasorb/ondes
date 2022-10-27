@@ -13,10 +13,10 @@ MIDIDEVICES = ('nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
 #BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
 #LATENCY = BLOCKTIME * BUFFERSIZE
 
-LATENCY = 30 # ms
+LATENCY = 50 # ms
 SAMPLERATE = 44100
 BUFFERSIZE = int(LATENCY / 1000 * SAMPLERATE) + 1
-NCHANNELS = 48 # number of most significant channels
+NCHANNELS = 64 # number of most significant channels
 
 
 logging.info('sample rate: {} Hz'.format(SAMPLERATE))
@@ -46,12 +46,13 @@ A_MIDIKEY = 45
 PADNOTE_SHIFT = -36
 POLYPHONY_VOLUME_ADJUST = 8 # volume of each note is divided by 15 to avoid audio > 1 when multpiple notes are stacked together
 
-TRANS_SIZE = 15
-TRANS_RELEASE = 5 # s
+TRANS_SIZE = 5
+TRANS_RELEASE = 10 # s
 
 
 MAX_DISPLAY_SIZE = 20000
-BINNING = 4
+BINNING = 4 # binning of data vs image
+RANDOMWALKER_RADIUS = 3
 
 FMIN = 20 # min frequency in Hz
 FMAX = 20000 # max frequency in Hz
@@ -71,7 +72,7 @@ CC_MATRIX = {
     'trans_release': (0,2,64),
     'rec': (0,45,0),
     'keep': (0,41,0),
-    'unkeep': (0,40,0)
+    'unkeep': (0,42,0)
     }
 
 

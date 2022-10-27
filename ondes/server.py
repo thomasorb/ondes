@@ -15,7 +15,7 @@ from . import maths
 
 class RandomWalker(object):
     
-    def __init__(self, dimx, dimy, ix, iy, stepsize, gravpower=2):
+    def __init__(self, dimx, dimy, ix, iy, stepsize, gravpower=4):
 
         self.gravpower = gravpower
         self.dimx = dimx
@@ -23,7 +23,7 @@ class RandomWalker(object):
         self.field = np.zeros((dimx, dimy))
         self.grav_center = int(ix), int(iy)
         self.ix, self.iy = int(ix), int(iy)
-        self.stepsize = 21
+        self.stepsize = stepsize
         self.last_irand = None
         self.last_p = None
 
@@ -90,17 +90,16 @@ class Server(object):
             self.data['y_orig0'].set(y_init)
             self.rw = RandomWalker(self.basedata.shape[0],
                                    self.basedata.shape[1],
-                                   x_init, y_init, 11) # step size
+                                   x_init, y_init, config.RANDOMWALKER_RADIUS) # step size
             self.low_timing_resolution = True
             self.filelen = 10
-            self.maxchans = self.basedata.shape[2] - 1
+            self.maxchans = self.basedata.shape[2] 
             self.nchans = config.NCHANNELS
             logging.info('channels number: {}'.format(self.maxchans))
-            self.depth = 1
 
-            self.bins = np.linspace(0, self.basedata.shape[2]-1, self.maxchans//self.depth+1).astype(int)
-            self.bins_diff = np.diff(self.bins)
-            self.filedata = np.empty((self.filelen, self.maxchans), dtype=config.DTYPE)
+            #self.bins = np.linspace(0, self.basedata.shape[2]-1, self.maxchans+1).astype(int)
+            #self.bins_diff = np.diff(self.bins)
+            self.filedata = np.zeros((self.filelen, self.maxchans), dtype=config.DTYPE)
 
             # load first N samples
             for i in range(self.filelen - 1):
@@ -206,6 +205,7 @@ class Server(object):
                         self.notes[inote, 3] = 0
                     else:
                         self.notes[inote, 1] += blocktime # add time to release
+
                     
                     
             #for inote in self.notes_old():
@@ -258,10 +258,10 @@ class Server(object):
 
                     if self.low_timing_resolution:
                         filedata_block = utils.fastinterp1d(
-                            self.filedata[:,0:self.maxchans], interp_axis[:2])[0,:]
+                            np.copy(self.filedata[:,0:self.maxchans]), interp_axis[:2])[0,:]
                     else:
                         filedata_block = utils.fastinterp1d(
-                            self.filedata[:,0:self.maxchans], interp_axis)
+                            np.copy(self.filedata[:,0:self.maxchans]), interp_axis)
 
                     if cc_keep > 0:
                         if self.keep is None:
@@ -293,28 +293,25 @@ class Server(object):
                         #self.trans[0, 0] = np.random.randint(0,filedata_block.shape[0])
                         self.trans[0, 0] = freqsorder[np.random.randint(0, len(freqsorder))]
                         
-                        self.trans[0, 1] = np.random.uniform(np.min(filedata_block) + utils.cc_rescale(
-                            cc_trans_presence, 0, 1) * np.max(filedata_block), np.max(filedata_block))
+                        self.trans[0, 1] = np.random.uniform(np.min(filedata_block),  + utils.cc_rescale(
+                            cc_trans_presence, 0, 1) * np.max(filedata_block))
                         
                         self.trans[0, 2] = 0
                         
                     self.trans[:,2] += blocksize / config.SAMPLERATE
                     filedata_block[self.trans[:,0].astype(int)] = self.trans[:,1] * np.clip(((trans_release - self.trans[:,2])/trans_release), 0, 1)
-                    
-                    
+                           
                     ## recompute most significant freqs to capture transients
                     freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
                     freqs = freqs[freqsorder].reshape((1, self.nchans))
 
-             
-                    
+                                 
                     # load next sample
                     if self.rw is not None:
                         self.next_to_load = int(self.data_index) + 2
                         
                         if self.next_to_load == self.filelen:
                             self.next_to_load = 1
-                        
                         if self.last_loaded != self.next_to_load:
                             self.filedata[self.next_to_load,:] = self.get_next()
                             if self.next_to_load == self.filelen - 1:
@@ -347,7 +344,7 @@ class Server(object):
                         utils.cc_rescale(cc_comp_level, cc_comp_threshold, 127), -5, -0.0001))
                     
                     
-                    carrier_matrix = np.zeros((blocksize, self.nchans))
+                    carrier_matrix = np.zeros((blocksize, self.nchans), dtype=config.DTYPE)
                     
                     for inote in range(len(self.notes)):
                         if not self.notes[inote, 3]: continue
@@ -368,6 +365,17 @@ class Server(object):
                         
                         
                         carrier_matrix += np.cos((self.time_matrix[:blocksize,0:self.nchans] + config.DTYPE(self.time_index)) * (freqs[:, 0:self.nchans] * freqshift * (2 * np.pi / config.SAMPLERATE))) * ivelocity * irelease * iattack
+
+                    if np.sum(self.notes[:,3]) == 0:
+                        # security clean of time index since it
+                        # becomes too large and the precision of the
+                        # time matrix is only float32, results in a
+                        # gltich every 100 s. float32 have 7 digits of
+                        # precision max, which means no more than 200s
+                        # at 44100
+                        self.time_index = 0
+
+            
                         
                                         
                     # brightness
@@ -400,7 +408,6 @@ class Server(object):
                     sound = maths.compress(sound, comp_threshold, comp_level)
                     
                     # clip
-                    #print(np.max(sound), np.min(sound))
                     sound = np.clip(sound, -1, 1)
 
                     data = np.zeros((blocksize, 2), dtype=config.DTYPE)
@@ -413,7 +420,10 @@ class Server(object):
                     data = np.zeros((blocksize, 2), dtype=config.DTYPE)
 
                 self.time_index += blocksize
-
+                
+                # security clean of time index since it becomes too large and the precision of the time matrix is only float32, results in a gltich every 100 s. float32 have 7 digits of precision max, which means no more than 200s at 44100
+                if self.time_index > 100 * config.SAMPLERATE: self.time_index = 0
+                
                 if self.rw is not None:
                     try:
                         self.data['display_spectrum0'][:self.maxchans] = np.array(filedata_block, dtype=config.DTYPE)
@@ -491,17 +501,16 @@ class Server(object):
     def get_next(self):
         if self.rw is None: raise Exception('random walker not initalised')
         vall = list()
-        for idepth in range(self.depth):
-            iix, iiy = self.rw.get_next()
-            #v = self.basedata[iix,iiy,:]
-            v = self.basedata[iix-config.BINNING:iix+config.BINNING+1,
-                              iiy-config.BINNING:iiy+config.BINNING+1,:]
-            v = np.mean(v, axis=(0,1))
-            vbin = np.add.reduceat(np.abs(v), self.bins)[:-1] / self.bins_diff
-            vbin /= np.max(vbin)
-            vall.append(vbin)
+        iix, iiy = self.rw.get_next()
+        v = self.basedata[iix-config.BINNING:iix+config.BINNING+1,
+                          iiy-config.BINNING:iiy+config.BINNING+1,:]
+        v = np.mean(v, axis=(0,1))
+        v /= np.max(np.abs((v)))
+        #vbin = np.add.reduceat(np.abs(v), self.bins)[:-1] / self.bins_diff
+        #vbin /= np.max(vbin)
+        #vall.append(vbin)
         
         self.data['x0'].set(iix)
         self.data['y0'].set(iiy)
-        return np.hstack(vall)
+        return v #np.hstack(vall)
             
