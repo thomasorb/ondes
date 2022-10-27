@@ -16,7 +16,7 @@ You may have to run
 conda init bash
 ```
 
-### 2. install `conda-build` tools
+### 2. install `conda-build` tools (Ubuntu 20.04+)
 ```bash
 conda install conda-build
 ```
@@ -27,8 +27,28 @@ conda install conda-build
 conda create -n music python=3.7
 conda install -n music numpy scipy matplotlib 
 conda install -n music -c conda-forge python-sounddevice
-conda install -n music -c conda-forge pysoundfile
+conda install -n music -c conda-forge pysoundfile mido
 ```
+
+```bash
+sudo apt install build-essential
+```
+
+## Install rtmidi
+On Ubuntu 20.04+:
+```bash
+python3-rtmidi
+```
+
+On MacOS Darwin
+```bash
+conda activate music
+pip install python-rtmidi
+```
+
+## Compile core library
+
+
 ## Run
 
 Once in the folder where ondes is installed
