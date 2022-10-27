@@ -29,3 +29,12 @@ conda install -n music numpy scipy matplotlib
 conda install -n music -c conda-forge python-sounddevice
 conda install -n music -c conda-forge pysoundfile
 ```
+## Run
+
+Once in the folder where ondes is installed
+```bash
+conda activate music # activate the music environment
+python run.py # run the program
+```
+
+Program can be stopped with CTRL+C, no need to reactivate the music environment each time you run the program
