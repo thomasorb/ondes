@@ -6,7 +6,7 @@ DEVICE = 'Steinberg UR22mkII'
 #DEVICE = 'front'
 #MIDIDEVICE = 'Steinberg UR22mkII'
 
-MIDIDEVICES = ('nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
+MIDIDEVICES = ('MPK mini 3', 'nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
 
 #BUFFERSIZE = 10 # number of blocks used for buffering
 #BLOCKSIZE = 384 #768 # block size # warning BLOCKSIZE is not really used anymore
@@ -59,15 +59,15 @@ FMAX = 20000 # max frequency in Hz
 
 # define CC inputs and their defaults values
 CC_MATRIX = {
-    'freqmin': (0,16,0),
-    'freqrange': (0,17,127),
-    'srate': (0,18,63),
-    'bright': (0,19,0),
-    'comp_threshold': (0,20,0),
-    'comp_level': (0,21,0),
-    'attack_time': (0,22,64),
-    'release_time': (0,23,64),
-    'volume': (0,0,63),
+    'freqmin': (0,70,0),
+    'freqrange': (0,71,127),
+    'srate': (0,72,63),
+    'bright': (0,73,0),
+    'comp_threshold': (0,74,0),
+    'comp_level': (0,75,0),
+    'attack_time': (0,76,64),
+    'release_time': (0,77,64),
+    'volume': (0,200,63),
     'trans_presence': (0,1,0),
     'trans_release': (0,2,64),
     'rec': (0,45,0),

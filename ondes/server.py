@@ -177,13 +177,14 @@ class Server(object):
             cc_comp_level = self.data['cc_comp_level'].get()
             cc_release_time = self.data['cc_release_time'].get()
             cc_attack_time = self.data['cc_attack_time'].get()
-            cc_volume = self.data['cc_volume'].get()
-            cc_trans_presence = self.data['cc_trans_presence'].get()
-            cc_trans_release = self.data['cc_trans_release'].get()
+            cc_volume = 118#self.data['cc_volume'].get()
             
-            cc_rec = self.data['cc_rec'].get()
-            cc_keep = self.data['cc_keep'].get()
-            cc_unkeep = self.data['cc_unkeep'].get()
+            cc_trans_presence = 0#self.data['cc_trans_presence'].get()
+            cc_trans_release = 64#self.data['cc_trans_release'].get()
+            
+            cc_rec = 0#self.data['cc_rec'].get()
+            cc_keep = 0#self.data['cc_keep'].get()
+            cc_unkeep = 0#self.data['cc_unkeep'].get()
             
             release_time = utils.cc_rescale(cc_release_time, 1, config.MAX_RELEASE_TIME) # in ms
             attack_time = utils.cc_rescale(cc_attack_time, 1, config.MAX_ATTACK_TIME) # in ms
@@ -443,7 +444,7 @@ class Server(object):
             #data = utils.morph(indata, data, 0.5)
             
             # send to out channel
-            
+            #print(data)
             outdata[:] = data
 
             if cc_rec and not self.recording:
