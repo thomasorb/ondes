@@ -50,7 +50,6 @@ class Keyboard(object):
             for icontrol in range(len(self.controllers)):
                 for msg in self.controllers[icontrol].iter_pending():
                     if msg.type == 'note_on':
-                        print(msg)
                         if msg.velocity > 0:
                             self.data['note{}'.format(msg.note)].set(True)
                             self.data['vel{}'.format(msg.note)].set(msg.velocity)

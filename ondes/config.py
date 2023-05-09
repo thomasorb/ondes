@@ -13,10 +13,10 @@ MIDIDEVICES = ('MPK mini 3', 'nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
 #BLOCKTIME = BLOCKSIZE / SAMPLERATE * 1000.
 #LATENCY = BLOCKTIME * BUFFERSIZE
 
-LATENCY = 50 # ms
+LATENCY = 30 # ms
 SAMPLERATE = 44100
 BUFFERSIZE = int(LATENCY / 1000 * SAMPLERATE) + 1
-NCHANNELS = 64 # number of most significant channels
+NCHANNELS = 128#64 # number of most significant channels
 
 
 logging.info('sample rate: {} Hz'.format(SAMPLERATE))
@@ -40,7 +40,7 @@ MAX_SYNTHS = 1
 MAX_ATTACK_TIME = 100. # in ms.
 MAX_RELEASE_TIME = 1000. # in ms.
 VOLUME_ADJUST = 10.
-VELOCITY_SCALE = 50. # impact of velocity on note volume, the higher the higher the sound on low velocity
+VELOCITY_SCALE = 20. # impact of velocity on note volume, the higher the higher the sound on low velocity
 BASENOTE = 60
 A_MIDIKEY = 45
 PADNOTE_SHIFT = -36

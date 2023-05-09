@@ -70,9 +70,9 @@ def note2f(note, a_midikey):
 def note2shift(note, basenote, a_midikey):
     return max(note2f(basenote, a_midikey) / note2f(note, a_midikey), 1)
 
-def sine(f, n, srate):
+def sine(f, n, srate, phase=0):
     x = np.arange(n, dtype=np.float32) / srate
-    return np.cos(f * x * 2. * np.pi)
+    return np.cos(f * (x + phase) * 2. * np.pi)
 
 def square(f, n, srate):
     return np.sign(sine(f, n, srate))

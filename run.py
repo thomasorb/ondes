@@ -1,6 +1,10 @@
 import logging
 logging.getLogger().setLevel(logging.INFO)
-        
+
+import sounddevice as sd
+devices = sd.query_devices()
+logging.info('audio devices: \n{}'.format(repr(devices)))
+                
 import ondes.machine
 #cubepath = '../data/crab.npy'
 #machine = ondes.machine.Machine(cubepath, dfpat

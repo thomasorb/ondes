@@ -252,7 +252,7 @@ class Server(object):
 
                     # compute interp axis
                     sampling_rate_factor = self.sampling_rate_factor * 10**utils.cc_rescale(
-                        cc_srate, -1, 1)
+                        cc_srate, -1, 3)
                     
                     interp_axis, self.data_index = compute_interp_axis(self.data_index, sampling_rate_factor)
 
