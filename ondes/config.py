@@ -6,7 +6,7 @@ DEVICE = 'Steinberg UR22mkII'
 #DEVICE = 'front'
 #MIDIDEVICE = 'Steinberg UR22mkII'
 
-MIDIDEVICES = ('MPK mini 3', 'nanoKONTROL2', 'Akai MPD24', 'Steinberg UR22mkII')
+MIDIDEVICES = ('MPK mini 3', 'nanoKONTROL2', 'Steinberg UR22mkII')
 
 #BUFFERSIZE = 10 # number of blocks used for buffering
 #BLOCKSIZE = 384 #768 # block size # warning BLOCKSIZE is not really used anymore
@@ -44,7 +44,7 @@ VELOCITY_SCALE = 20. # impact of velocity on note volume, the higher the higher 
 BASENOTE = 60
 A_MIDIKEY = 45
 PADNOTE_SHIFT = -36
-POLYPHONY_VOLUME_ADJUST = 8 # volume of each note is divided by 15 to avoid audio > 1 when multpiple notes are stacked together
+POLYPHONY_VOLUME_ADJUST = 4 # volume of each note is divided by 15 to avoid audio > 1 when multpiple notes are stacked together
 
 TRANS_SIZE = 5
 TRANS_RELEASE = 10 # s
@@ -67,12 +67,18 @@ CC_MATRIX = {
     'comp_level': (0,75,0),
     'attack_time': (0,76,64),
     'release_time': (0,77,64),
-    'volume': (0,200,63),
-    'trans_presence': (0,1,0),
-    'trans_release': (0,2,64),
+    #'trans_presence': (0,1,0),
+    #'trans_release': (0,2,64),
     'rec': (0,45,0),
     'keep': (0,41,0),
-    'unkeep': (0,42,0)
+    'unkeep': (0,42,0),
+    'square': (1,0,0),
+    'inhomogeneity': (1,1,0),
+    'sample_inhomogeneity': (1,2,0),
+    'm': (1,3,0),
+    'damp': (1,4,127),
+    'tube': (1,6,0),
+    'volume': (1,7,63),
     }
 
 

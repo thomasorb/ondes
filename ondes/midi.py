@@ -41,7 +41,7 @@ class Keyboard(object):
         for icc in config.CC_MATRIX:
             registered_ccs[config.CC_MATRIX[icc][0]][config.CC_MATRIX[icc][1]] = icc
 
-        
+        print(registered_ccs)
         while True:
             stime = time.time()
                         
@@ -65,8 +65,9 @@ class Keyboard(object):
                         #         ikeys.set_volume(msg.value / 127.)
                     elif msg.type == 'control_change':
                         if msg.control in registered_ccs[icontrol]:
-                            self.data['cc_{}'.format(registered_ccs[icontrol][msg.control])].set(msg.value)
-                        elif not msg.value:
+                            #print('reg: ', 'cc_{}'.format(registered_ccs[icontrol][msg.control]), msg)
+                            self.data['cc_{}'.format(registered_ccs[icontrol][msg.control])].set(msg.value)  
+                        else:
                             logging.info('unregisterd input {}'.format(msg.control))
                         
             self.data.timing_buffers['midi_loop_time'].put(time.time() - stime)

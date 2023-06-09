@@ -77,6 +77,21 @@ def sine(f, n, srate, phase=0):
 def square(f, n, srate):
     return np.sign(sine(f, n, srate))
 
+def saw(x):
+    T = np.pi * 2
+    X = (x - T) / (T)
+    X = X % 1
+    return (X * 2) - 1
+
+def triangle(x):
+    T = np.pi * 2
+    X = (x - T/2) / (T)
+    S = (x - T/2) % (T/2)
+    S2 = (x - T/2) % T
+    X = np.where(np.isclose(S, S2),X, -X)
+    X = (X % 1) 
+    return (X * 4) - 1
+
 def inverse_transform(X, note, basenote, a_midikey):
     N = X.shape[0]
     N = (N - N%2) * 2
@@ -209,6 +224,4 @@ def cut(s, srate, starttime, stoptime):
     if start >= n: raise Exception('start time exceed sample length')
     if stop >= n: stop = n-1
     return s[start:stop,:]
-    
-    
-    
+        

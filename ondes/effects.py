@@ -126,3 +126,13 @@ def crop(sample, start, end):
     assert 0 < end <= 1
     assert start < end
     return sample[int(len(sample) * start):int(len(sample) * end)]
+
+def lowpass(a, N):
+    mean = a[::N]
+    for i in range(1, N):
+        imean = a[i::N]
+        mean[:imean.shape[0]] += imean
+    mean /= N 
+    for i in range(0, N):
+        a[i::N] = mean[:a[i::N].shape[0]]
+    return a

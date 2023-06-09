@@ -10,7 +10,7 @@ import scipy.signal
 import time
 
 from cpython cimport bool
-from libc.math cimport cos, pow, floor
+from libc.math cimport cos, pow, floor, sqrt
 from libc.stdlib cimport malloc, free
 
 from . import config
@@ -18,6 +18,47 @@ from . import config
 cdef int SAMPLERATE = <int> config.SAMPLERATE
 cdef int A_MIDIKEY = <int> config.A_MIDIKEY
 cdef int BASENOTE = <int> config.BASENOTE
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef elastic_output(float[:] data, float m, float damp, float v, float p):
+    
+    """
+    m between 1 and 100
+    
+    v (0 by default)
+    p (0 by default)
+    damp <= 0.5
+    m >= 1
+    omega02 <= 1 # this goes for omega0**2
+    """
+    damp = min(damp, 0.5)
+    m = max(m, 1)
+    
+    cdef float omega02 = 1 / m
+    #cdef float k = m * omega02
+    cdef float k = 1
+    
+    cdef float[:] out = np.empty_like(data)
+    cdef float a = 0
+    
+    cdef float b = 2 * sqrt(k * m) * damp 
+    cdef int i
+    
+    b = max(b , 1) # to avoid amplifying velocity
+    
+    with nogil:
+        for i in range(data.shape[0]):
+            a = (data[i] - k * p - b * v) / m
+            v += a
+            p += v
+            out[i] = p
+            
+    out = np.clip(out, -1, 1)
+    return out, v, p
+
 
 @cython.cdivision(True)
 @cython.boundscheck(False)

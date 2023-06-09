@@ -12,6 +12,7 @@ from . import config
 from . import utils
 from . import ccore
 from . import maths
+from . import effects
 
 class RandomWalker(object):
     
@@ -136,58 +137,44 @@ class Server(object):
         self.last_loaded = 0
         self.next_to_load = 0
         self.notes = np.zeros((127, 4), dtype=float)
-        self.trans = np.zeros((config.TRANS_SIZE, 4), dtype=float)
-        self.trans[:,0] = np.random.randint(0, self.filedata.shape[0])
-        self.trans[:,2] = 1000 * config.TRANS_RELEASE
+        # self.trans = np.zeros((config.TRANS_SIZE, 4), dtype=float)
+        # self.trans[:,0] = np.random.randint(0, self.filedata.shape[0])
+        # self.trans[:,2] = 1000 * config.TRANS_RELEASE
         self.keep = None
+        self.vL = 0
+        self.pL = 0
+        self.vR = 0
+        self.pR = 0
+        self.callback_rands = np.full(3, 1e-5)
+        self.callback_rands_factor = np.random.uniform(2, 10, size=len(self.callback_rands))
+        self.callback_rands_phase = np.random.uniform(1, 4, size=len(self.callback_rands))
+
+        self.sample_rands = np.full(len(self.notes), 1e-5)
+        self.sample_rands_factor = np.random.uniform(2, 10, size=len(self.sample_rands))
+        self.sample_rands_phase = np.random.uniform(1, 4, size=len(self.sample_rands))
         
         # init time matrix
         self.time_matrix = np.ones(
             (config.BUFFERSIZE, self.maxchans),
             dtype=config.DTYPE) * np.arange(config.BUFFERSIZE).reshape((config.BUFFERSIZE, 1)).astype(config.DTYPE)
-                    
-        def callback(outdata, frames, timing, status):
 
+        
+        def get_sample(blocksize, cc):
+
+            sample_inhomogeneity = 10**utils.cc_rescale(cc['sample_inhomogeneity'], -5, 0)
+            self.sample_rands = np.cos(self.time_index / config.SAMPLERATE / self.sample_rands_factor + self.sample_rands_phase) * sample_inhomogeneity
+            
             def compute_interp_axis(data_index, sampling_rate_factor):
-                interp_axis = np.arange(frames, dtype=float) / sampling_rate_factor + data_index
+                interp_axis = np.arange(blocksize, dtype=float) / sampling_rate_factor + data_index
                 interp_axis = interp_axis % (self.filelen - 1)
                 next_data_index = float(interp_axis[-1]) + (1 / sampling_rate_factor)
                 return interp_axis, next_data_index
 
-            stime = time.time()
-            
-            #assert frames == config.BLOCKSIZE
-
-            blocksize = frames
-            blocktime = frames / config.SAMPLERATE * 1000
+            blocktime = blocksize / config.SAMPLERATE * 1000
             #print(blocksize, blocktime, np.sum(self.notes[:,3]))
             
-
-            cc_freqmin = self.data['cc_freqmin'].get()
-            cc_freqrange = self.data['cc_freqrange'].get()
-            cc_srate = self.data['cc_srate'].get()
-            cc_bright = self.data['cc_bright'].get()
-            #cc_lowpass = self.data['cc20'].get()
-            #cc_pink = self.data['cc21'].get()
-            #cc_chanc = self.data['cc_chanc'].get()
-            #cc_chanstd = self.data['cc_chanstd'].get()
-            #cc_harm_n = self.data['cc33'].get()
-            #cc_harm_step = self.data['cc34'].get()
-            cc_comp_threshold = self.data['cc_comp_threshold'].get()
-            cc_comp_level = self.data['cc_comp_level'].get()
-            cc_release_time = self.data['cc_release_time'].get()
-            cc_attack_time = self.data['cc_attack_time'].get()
-            cc_volume = 118#self.data['cc_volume'].get()
-            
-            cc_trans_presence = 0#self.data['cc_trans_presence'].get()
-            cc_trans_release = 64#self.data['cc_trans_release'].get()
-            
-            cc_rec = 0#self.data['cc_rec'].get()
-            cc_keep = 0#self.data['cc_keep'].get()
-            cc_unkeep = 0#self.data['cc_unkeep'].get()
-            
-            release_time = utils.cc_rescale(cc_release_time, 1, config.MAX_RELEASE_TIME) # in ms
-            attack_time = utils.cc_rescale(cc_attack_time, 1, config.MAX_ATTACK_TIME) # in ms
+            release_time = utils.cc_rescale(cc['release_time'], 1, config.MAX_RELEASE_TIME) # in ms
+            attack_time = utils.cc_rescale(cc['attack_time'], 1, config.MAX_ATTACK_TIME) # in ms
             
             for inote in range(len(self.notes)):
                 if self.data['note{}'.format(inote)].get() > 0:
@@ -207,225 +194,229 @@ class Server(object):
                     else:
                         self.notes[inote, 1] += blocktime # add time to release
 
+            
+            if self.rw is not None:                
+                self.rw.set_grav_center(
+                    self.data['x_orig0'].get(),
+                    self.data['y_orig0'].get(),
+                    fast_move=True)
+                
+                    # channels selection
+            # chanc = utils.cc_rescale(cc['chanc'], 0, self.maxchans - 1)
+            # chanstd = utils.cc_rescale(cc['chanstd'], 0, self.maxchans*2)
+            # chanmin = int(max(chanc - 2*chanstd, 0))
+            # chanmax = int(min(chanc + 2*chanstd + 1, self.maxchans))
+            ## chan_eq = np.exp(-(np.arange(self.maxchans) - chanc)**2/(chanstd+0.5)**2)
+            chan_eq = np.ones(self.maxchans)
+
+            # frequency range
+            freqmin = utils.cc_rescale(cc['freqmin'], -64, 127+64)
+            freqrange = utils.cc_rescale(cc['freqrange'], 0, 256)
+            freqmax = freqmin + freqrange#, 256)
+
+            notefreqs = np.linspace(freqmin, freqmax, self.maxchans)
+            freqs = utils.note2f(notefreqs, config.A_MIDIKEY).astype(config.DTYPE)
+
+            # compute interp axis
+            sampling_rate_factor = self.sampling_rate_factor * 10**utils.cc_rescale(
+                cc['srate'], -1, 3)
+
+            interp_axis, self.data_index = compute_interp_axis(self.data_index, sampling_rate_factor)
+
+
+            if self.low_timing_resolution:
+                filedata_block = utils.fastinterp1d(
+                    np.copy(self.filedata[:,0:self.maxchans]), interp_axis[:2])[0,:]
+            else:
+                filedata_block = utils.fastinterp1d(
+                    np.copy(self.filedata[:,0:self.maxchans]), interp_axis)
+
+            if cc['keep'] > 0:
+                if self.keep is None:
+                    self.keep = np.copy(filedata_block)
+                else:
+                    self.keep = (filedata_block + self.keep)/2
+            elif self.keep is not None:
+                filedata_block = (filedata_block + self.keep)/2
+
+            if cc['unkeep'] > 0:
+                self.keep = None
+
+            # compute most significant freqs (witout transients)
+            freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
+
+            # # autotune
+            # autotune = 0
+            # basef = (freqmin + freqmax)/2.
+            # if autotune:
+            #     nearestf = np.min(np.abs(freqs[freqsorder][:10] - basef))
+            #     freqs *= basef / nearestf
+
+
+            # add random transients sounds
+            # trans_release = config.TRANS_RELEASE * utils.cc_rescale(cc['trans_release'], 0.01, 1)
+
+            # if np.any(self.trans[:,2] > trans_release) and np.random.uniform() < .1:
+            #     self.trans = np.roll(self.trans, 1, axis=0)
+            #     #self.trans[0, 0] = np.random.randint(0,filedata_block.shape[0])
+            #     self.trans[0, 0] = freqsorder[np.random.randint(0, len(freqsorder))]
+
+            #     self.trans[0, 1] = np.random.uniform(np.min(filedata_block),  + utils.cc_rescale(
+            #         cc['trans_presence'], 0, 1) * np.max(filedata_block))
+
+            #     self.trans[0, 2] = 0
+
+            # self.trans[:,2] += blocksize / config.SAMPLERATE
+            # filedata_block[self.trans[:,0].astype(int)] = self.trans[:,1] * np.clip(((trans_release - self.trans[:,2])/trans_release), 0, 1)
+
+            ## recompute most significant freqs to capture transients
+            # freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
+
+
+            freqs = freqs[freqsorder].reshape((1, self.nchans))
+
+            # load next sample
+            if self.rw is not None:
+                self.next_to_load = int(self.data_index) + 2
+
+                if self.next_to_load == self.filelen:
+                    self.next_to_load = 1
+                if self.last_loaded != self.next_to_load:
+                    self.filedata[self.next_to_load,:] = self.get_next()
+                    if self.next_to_load == self.filelen - 1:
+                        # copy last sample to first sample
+                        self.filedata[0,:] = self.filedata[self.next_to_load,:]
+                    self.last_loaded = int(self.next_to_load)
+
+
+            # if self.phase.shape[0] > 1:
+            #     if self.low_timing_resolution:
+            #         phase_block = utils.fastinterp1d(
+            #             self.phase[:,0:self.nchans], interp_axis[:2])[0,:]
+            #     else:
+            #         phase_block = utils.fastinterp1d(
+            #             self.phase[:,0:self.nchans], interp_axis)
+            #     phase_block = self.phase[0,0:self.nchans]
+            # else:
+            #     phase_block = self.phase[:,0:self.nchans]
+
+
+
+            # compute carrier matrix
+
+
+            ## important to keep the value computed by cos to float32 (much much faster)
+            carrier_matrix = np.zeros((blocksize, self.nchans), dtype=config.DTYPE)
+
+            # def triangle(x, cosx):
+            #     sinx = np.sin(x) 
+            #     atan2 = np.arctan2(sinx, cosx) / np.pi
+            #     return (np.where(sinx > 0, atan2, -atan2) *2) - 1
+
+            for inote in range(len(self.notes)):
+                if not self.notes[inote, 3]: continue
+                freqshift = utils.note2f(inote, config.A_MIDIKEY) / utils.note2f(config.BASENOTE, config.A_MIDIKEY) 
+                ivelocity = 10**((self.notes[inote, 0] - 127)/(10*config.VELOCITY_SCALE))
+
+                iattack = np.linspace(self.notes[inote, 2],
+                                      self.notes[inote, 2] + blocktime,
+                                      blocksize).reshape((blocksize,1))
+                iattack /= attack_time
+                iattack = np.clip(iattack,0,1)
+
+                irelease = np.linspace(self.notes[inote, 1] - blocktime,
+                                       self.notes[inote, 1],
+                                       blocksize).reshape((blocksize,1))
+                irelease = (release_time - irelease) / release_time
+                irelease = np.clip(irelease,0,1)
+
+                x = (self.time_matrix[:blocksize,0:self.nchans] + config.DTYPE(self.time_index)) * (freqs[:, 0:self.nchans] * freqshift * (2 * np.pi / config.SAMPLERATE))
+                #x += inote * 40000 # dephase to avoid ZPD effects when time near 0
+                cosx = np.cos(x) 
+                #carrier_matrix += (triangle(x, cosx) + cosx) / 2 * ivelocity * irelease * iattack
+                a = utils.cc_rescale(cc['square'], 0., 1.)
+                #powx = np.where(cosx > 0, cosx**a, -(-cosx)**a)
+
+                carrier_matrix += (np.sign(cosx) * a + cosx * (1-a)) * ivelocity * irelease * iattack
+
+            if np.sum(self.notes[:,3]) == 0:
+                # security clean of time index since it
+                # becomes too large and the precision of the
+                # time matrix is only float32, results in a
+                # gltich every 100 s. float32 have 7 digits of
+                # precision max, which means no more than 200s
+                # at 44100
+                self.time_index = np.random.uniform(100000, 200000)
+
+
+
+
+            # brightness
+            brightness = config.DTYPE(utils.cc_rescale(cc['bright'], 0, 10))
+            filedata_block = filedata_block ** brightness
+
+            # equalizer
+            #noct = np.log(fmax/fmin) / np.log(2) # number of octaves
+            #pink_factor = utils.cc_rescale(cc['pink'], -4, 0)
+            #pink = (np.linspace(1, noct, self.maxchans)**(pink_factor))
+
+            carrier_matrix *= (filedata_block * chan_eq)[freqsorder] #* pink[0:self.nchans]
+
+            # merge channels
+            sound = np.mean(carrier_matrix, axis=1)
+
+            
+            # volume
+
+            ## volume of each note is divided to avoid audio > 1 when multiple notes are stacked together
+            sound /= config.POLYPHONY_VOLUME_ADJUST
+
+            return sound, filedata_block, freqsorder
+        
+
                     
-                    
-            #for inote in self.notes_old():
-            #    if
-            #self.notes_old = list(self.notes) # copy of the list to compute release
+        def callback(outdata, frames, timing, status):
+            stime = time.time()
+            blocksize = frames
+
+
+            #get Control Change
+            cc = dict()        
+            for icc in config.CC_MATRIX:
+                cc[icc] = self.data['cc_' + icc].get()
+                
+            # hacks##############
+            #cc['volume'] = 126
+            #cc['trans_presence'] = 0
+            #cc['trans_release'] = 64            
+            cc['rec'] = 0
+            cc['keep'] = 0
+            cc['unkeep'] = 0
+            #######################
+            
+            filedata_block = None
+            freqsorder = None
             
             # get output
             if status.output_underflow:
                 logging.warn('Output underflow: increase blocksize?')
-                data = np.zeros((blocksize, 2), dtype=config.DTYPE)
+                sample = np.zeros(blocksize, dtype=config.DTYPE)
             if status:
                 logging.warn('callback status')
-                data = np.zeros((blocksize, 2), dtype=config.DTYPE)
+                sample = np.zeros(blocksize, dtype=config.DTYPE)
             else:
-                
-                if self.rw is not None:                
-                    self.rw.set_grav_center(
-                        self.data['x_orig0'].get(),
-                        self.data['y_orig0'].get(),
-                        fast_move=True)
-                
-                #cc_fold_n = self.data['cc33'].get()
-                #cc_fold_delay = self.data['cc34'].get()
-                
-                #print(cc_freqmin, cc_freqrange, cc_srate, cc_bright, cc_lowpass, cc_pink, cc_chanc, cc_chanstd)
                 try:
-                    
-                    # channels selection
-                    # chanc = utils.cc_rescale(cc_chanc, 0, self.maxchans - 1)
-                    # chanstd = utils.cc_rescale(cc_chanstd, 0, self.maxchans*2)
-                    # chanmin = int(max(chanc - 2*chanstd, 0))
-                    # chanmax = int(min(chanc + 2*chanstd + 1, self.maxchans))
-                    ## chan_eq = np.exp(-(np.arange(self.maxchans) - chanc)**2/(chanstd+0.5)**2)
-                    chan_eq = np.ones(self.maxchans)
-                    
-                    # frequency range
-                    freqmin = utils.cc_rescale(cc_freqmin, 0, 127)
-                    freqrange = utils.cc_rescale(cc_freqrange, 0, 127)
-                    freqmax = min(freqmin + freqrange, 127)
-
-                    notefreqs = np.linspace(freqmin, freqmax, self.maxchans)
-                    freqs = utils.note2f(notefreqs, config.A_MIDIKEY).astype(config.DTYPE)
-
-                    # compute interp axis
-                    sampling_rate_factor = self.sampling_rate_factor * 10**utils.cc_rescale(
-                        cc_srate, -1, 3)
-                    
-                    interp_axis, self.data_index = compute_interp_axis(self.data_index, sampling_rate_factor)
-
-
-                    if self.low_timing_resolution:
-                        filedata_block = utils.fastinterp1d(
-                            np.copy(self.filedata[:,0:self.maxchans]), interp_axis[:2])[0,:]
-                    else:
-                        filedata_block = utils.fastinterp1d(
-                            np.copy(self.filedata[:,0:self.maxchans]), interp_axis)
-
-                    if cc_keep > 0:
-                        if self.keep is None:
-                            self.keep = np.copy(filedata_block)
-                        else:
-                            self.keep = (filedata_block + self.keep)/2
-                    elif self.keep is not None:
-                        filedata_block = (filedata_block + self.keep)/2
-
-                    if cc_unkeep > 0:
-                        self.keep = None
-                        
-                    # compute most significant freqs (witout transients)
-                    freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
-
-                    # # autotune
-                    # autotune = 0
-                    # basef = (freqmin + freqmax)/2.
-                    # if autotune:
-                    #     nearestf = np.min(np.abs(freqs[freqsorder][:10] - basef))
-                    #     freqs *= basef / nearestf
-                    
-                    
-                    # add random transients sounds
-                    trans_release = config.TRANS_RELEASE * utils.cc_rescale(cc_trans_release, 0.01, 1)
-
-                    if np.any(self.trans[:,2] > trans_release) and np.random.uniform() < .1:
-                        self.trans = np.roll(self.trans, 1, axis=0)
-                        #self.trans[0, 0] = np.random.randint(0,filedata_block.shape[0])
-                        self.trans[0, 0] = freqsorder[np.random.randint(0, len(freqsorder))]
-                        
-                        self.trans[0, 1] = np.random.uniform(np.min(filedata_block),  + utils.cc_rescale(
-                            cc_trans_presence, 0, 1) * np.max(filedata_block))
-                        
-                        self.trans[0, 2] = 0
-                        
-                    self.trans[:,2] += blocksize / config.SAMPLERATE
-                    filedata_block[self.trans[:,0].astype(int)] = self.trans[:,1] * np.clip(((trans_release - self.trans[:,2])/trans_release), 0, 1)
-                           
-                    ## recompute most significant freqs to capture transients
-                    freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
-                    freqs = freqs[freqsorder].reshape((1, self.nchans))
-
-                                 
-                    # load next sample
-                    if self.rw is not None:
-                        self.next_to_load = int(self.data_index) + 2
-                        
-                        if self.next_to_load == self.filelen:
-                            self.next_to_load = 1
-                        if self.last_loaded != self.next_to_load:
-                            self.filedata[self.next_to_load,:] = self.get_next()
-                            if self.next_to_load == self.filelen - 1:
-                                # copy last sample to first sample
-                                self.filedata[0,:] = self.filedata[self.next_to_load,:]
-                            self.last_loaded = int(self.next_to_load)
-
-                    
-                    # if self.phase.shape[0] > 1:
-                    #     if self.low_timing_resolution:
-                    #         phase_block = utils.fastinterp1d(
-                    #             self.phase[:,0:self.nchans], interp_axis[:2])[0,:]
-                    #     else:
-                    #         phase_block = utils.fastinterp1d(
-                    #             self.phase[:,0:self.nchans], interp_axis)
-                    #     phase_block = self.phase[0,0:self.nchans]
-                    # else:
-                    #     phase_block = self.phase[:,0:self.nchans]
-
-
-
-                    # compute carrier matrix
-
-                            
-                    ## important to keep the value computed by cos to float32 (much much faster)
-
-
-                    comp_threshold = 10**(utils.cc_rescale(cc_comp_threshold, -5, -0.0001))
-                    comp_level = 10**(utils.cc_rescale(
-                        utils.cc_rescale(cc_comp_level, cc_comp_threshold, 127), -5, -0.0001))
-                    
-                    
-                    carrier_matrix = np.zeros((blocksize, self.nchans), dtype=config.DTYPE)
-                    
-                    for inote in range(len(self.notes)):
-                        if not self.notes[inote, 3]: continue
-                        freqshift = utils.note2f(inote, config.A_MIDIKEY) / utils.note2f(config.BASENOTE, config.A_MIDIKEY)
-                        ivelocity = 10**((self.notes[inote, 0] - 127)/(10*config.VELOCITY_SCALE))
-                        
-                        iattack = np.linspace(self.notes[inote, 2],
-                                              self.notes[inote, 2] + blocktime,
-                                              blocksize).reshape((blocksize,1))
-                        iattack /= attack_time
-                        iattack = np.clip(iattack,0,1)
-
-                        irelease = np.linspace(self.notes[inote, 1] - blocktime,
-                                               self.notes[inote, 1],
-                                               blocksize).reshape((blocksize,1))
-                        irelease = (release_time - irelease) / release_time
-                        irelease = np.clip(irelease,0,1)
-                        
-                        
-                        carrier_matrix += np.cos((self.time_matrix[:blocksize,0:self.nchans] + config.DTYPE(self.time_index)) * (freqs[:, 0:self.nchans] * freqshift * (2 * np.pi / config.SAMPLERATE))) * ivelocity * irelease * iattack
-
-                    if np.sum(self.notes[:,3]) == 0:
-                        # security clean of time index since it
-                        # becomes too large and the precision of the
-                        # time matrix is only float32, results in a
-                        # gltich every 100 s. float32 have 7 digits of
-                        # precision max, which means no more than 200s
-                        # at 44100
-                        self.time_index = 0
-
-            
-                        
-                                        
-                    # brightness
-                    brightness = config.DTYPE(utils.cc_rescale(cc_bright, 0, 10))
-                    filedata_block = filedata_block ** brightness
-
-                    # equalizer
-                    #noct = np.log(fmax/fmin) / np.log(2) # number of octaves
-                    #pink_factor = utils.cc_rescale(cc_pink, -4, 0)
-                    #pink = (np.linspace(1, noct, self.maxchans)**(pink_factor))
-
-                    carrier_matrix *= (filedata_block * chan_eq)[freqsorder] #* pink[0:self.nchans]
-                    
-                    # merge channels
-                    sound = np.mean(carrier_matrix, axis=1)
-                    
-                    # lowpass
-                    # lowpass = utils.cc_rescale(cc_lowpass, 0, 50)
-                    # if lowpass > 0:
-                    #     sound = np.array(ccore.fast_lowp(sound.astype(np.float32), lowpass))
-                    
-                    # volume
-
-                    ## volume of each note is divided to avoid audio > 1 when multiple notes are stacked together
-                    sound /= config.POLYPHONY_VOLUME_ADJUST
-
-                    sound *= 10**utils.cc_rescale(cc_volume, -2, 2)
-                    
-                    # compress
-                    sound = maths.compress(sound, comp_threshold, comp_level)
-                    
-                    # clip
-                    sound = np.clip(sound, -1, 1)
-
-                    data = np.zeros((blocksize, 2), dtype=config.DTYPE)
-                    data[:,0] = sound
-                    data[:,1] = data[:,0]
-
-                    
+                    sample, filedata_block, freqsorder = get_sample(blocksize, cc)
                 except Exception as e:
-                    logging.warn('callback exception: {}'.format(e))
-                    data = np.zeros((blocksize, 2), dtype=config.DTYPE)
+                    logging.warn('get_sample() exception: {}'.format(e))
+                    sample = np.zeros(blocksize, dtype=config.DTYPE)
 
                 self.time_index += blocksize
                 
                 # security clean of time index since it becomes too large and the precision of the time matrix is only float32, results in a gltich every 100 s. float32 have 7 digits of precision max, which means no more than 200s at 44100
                 if self.time_index > 100 * config.SAMPLERATE: self.time_index = 0
                 
-                if self.rw is not None:
+                if self.rw is not None and freqsorder is not None:
                     try:
                         self.data['display_spectrum0'][:self.maxchans] = np.array(filedata_block, dtype=config.DTYPE)
                         self.data['display_spectrum_len0'].set(self.maxchans)
@@ -435,23 +426,13 @@ class Server(object):
                     except Exception as e:
                         logging.warning('error at display', e)
 
-            data = data.astype(config.DTYPE)
             
-            #assert data.shape == outdata.shape, 'data len must match'
 
-            # morphing with input
-
-            #data = utils.morph(indata, data, 0.5)
-            
-            # send to out channel
-            #print(data)
-            outdata[:] = data
-
-            if cc_rec and not self.recording:
+            if cc['rec'] and not self.recording:
                 self.recording = True
                 self.to_record = list()
                 
-            if not cc_rec and self.recording:
+            if not cc['rec'] and self.recording:
                 self.recording = False
                 if len(self.to_record) > 0:
                     sf.write('{}.wav'.format(int(time.time())),
@@ -463,7 +444,70 @@ class Server(object):
                 self.to_record.append(data)
                 
             self.data.timing_buffers['server_callback_time'].put(time.time() - stime)
+
+
+            # use next sample to generate effects larger than one sample (e.g. lowpass)
+
+            # both = np.concatenate((self.next_sample, data))
+
+            # # lowpass
+            # lowpass = utils.cc_rescale(cc['lowpass'], 20, 1)
+            # if lowpass > 1:
+            #     #both[:,0] = np.array(ccore.fast_lowp(both[:,0].astype(np.float32), lowpass))
+            #     #both[:,1] = np.array(ccore.fast_lowp(both[:,1].astype(np.float32), lowpass))
+            #     both = effects.lowpass(both, int(lowpass))
+
+            # # only the first part of both is kept
+            # outdata[:] = both[:blocksize,:]
+            # self.next_sample = both[blocksize:,:]
+
             
+            # sample goes through elastic output
+            m = 10 ** utils.cc_rescale(cc['m'], 0, 4)
+            #omega0 = 10**utils.cc_rescale(cc['omega0'], -4, 0)
+            damp = 0.5 * 10**utils.cc_rescale(cc['damp'], -4, 0)
+
+            _max = np.max(sample)
+            inhomogeneity = 10**utils.cc_rescale(cc['inhomogeneity'], -5, 0)
+
+            self.callback_rands = np.cos(self.time_index / config.SAMPLERATE / self.callback_rands_factor + self.callback_rands_phase) * inhomogeneity
+            
+            sampleL, self.vL, self.pL = ccore.elastic_output(
+                sample,
+                m * (1 + self.callback_rands[0]),
+                damp * (1 + self.callback_rands[1]),
+                float(self.vL), float(self.pL))
+            
+            sampleR, self.vR, self.pR = ccore.elastic_output(
+                sample,
+                m * (1 - self.callback_rands[0]),
+                damp * (1 - self.callback_rands[1]),
+                float(self.vR), float(self.pR))
+
+            stereo = np.empty((blocksize, 2), dtype=config.DTYPE)
+            stereo[:,0] = np.array(sampleL)
+            stereo[:,1] = np.array(sampleR)
+            
+            # volume
+            stereo *= 10**utils.cc_rescale(cc['volume'], -2, 4)
+
+            # compress
+            comp_threshold = 10**(utils.cc_rescale(cc['comp_threshold'], -5, -0.0001))
+            comp_level = 10**(utils.cc_rescale(
+                utils.cc_rescale(cc['comp_level'], cc['comp_threshold'], 127), -5, -0.0001))
+
+            stereo = maths.compress(stereo, comp_threshold, comp_level)
+
+            # sigmoid (tube :D)
+            tube = utils.cc_rescale(cc['tube'], 1, 10)
+            stereo[:,0] = 2*(scipy.special.expit(stereo[:,0] * tube * (1 + self.callback_rands[2])) - 0.5)
+            stereo[:,1] = 2*(scipy.special.expit(stereo[:,0] * tube * (1 - self.callback_rands[2])) - 0.5)
+
+            # clip
+            stereo = np.clip(stereo, -1, 1)
+
+            outdata[:] = stereo
+
             return
 
         self.stream = sd.OutputStream(

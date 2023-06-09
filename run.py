@@ -11,7 +11,7 @@ import ondes.machine
 #phasepath = '../data/crab2d_phase.npy'
 
 
-cubepath = '../data/crab.npy'
+cubepath = '../data/crab.sn3.2.npy'
 dfpath = '../data/crab-df.npy'
 machine = ondes.machine.Machine(cubepath, 0.3, dfpath)
 

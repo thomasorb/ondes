@@ -10,7 +10,7 @@ import scipy.signal
 import time
 
 from cpython cimport bool
-from libc.math cimport cos, pow, floor
+from libc.math cimport cos, pow, floor, sqrt
 from libc.stdlib cimport malloc, free
 
 from . import config
@@ -18,6 +18,111 @@ from . import config
 cdef int SAMPLERATE = <int> config.SAMPLERATE
 cdef int A_MIDIKEY = <int> config.A_MIDIKEY
 cdef int BASENOTE = <int> config.BASENOTE
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef elastic_output(float[:] data, float m, float damp, float v, float p):
+    
+    """
+    m between 1 and 100
+    
+    v (0 by default)
+    p (0 by default)
+    damp <= 0.5
+    m >= 1
+    omega02 <= 1 # this goes for omega0**2
+    """
+    damp = min(damp, 0.5)
+    m = max(m, 1)
+    
+    cdef float omega02 = 1 / m
+    #cdef float k = m * omega02
+    cdef float k = 1
+    
+    cdef float[:] out = np.empty_like(data)
+    cdef float a = 0
+    
+    cdef float b = 2 * sqrt(k * m) * damp 
+    cdef int i
+    
+    b = max(b , 1) # to avoid amplifying velocity
+    
+    
+    with nogil:
+        for i in range(data.shape[0]):
+            a = (data[i] - k * p - b * v) / m
+            v += a
+            p += v
+            out[i] = p
+            
+    out = np.clip(out, -1, 1)
+    return out, v, p
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef fast_lowp(np.float32_t[:] a, int level):
+    cdef np.float32_t[::1] out = np.empty_like(a)
+    cdef float s
+    cdef int imin, imax
+    cdef int i, j
+    with nogil:
+        for i in range(a.shape[0]):
+            imin = max(i-level, 0)
+            imax = min(i+level+1, a.shape[0])
+            s = 0
+            for j in range(imin, imax):
+                s += a[j]
+            out[i] = s / <float> (imax - imin)
+    return out
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef reduce_srate(np.float32_t[:] a, int binning):
+    cdef int i, j
+    cdef float s
+    assert binning > 1
+    with nogil:
+        for i in range(a.shape[0]//binning + 1):
+            i = i * binning
+            s = 0
+            for j in range(binning):
+                if i + j < a.shape[0]:
+                    s = s + a[i + j]
+            for j in range(binning):
+                if i + j < a.shape[0]:
+                    a[i+j] = s / binning
+    return a
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef dither(np.float32_t[:] a, int b_new, float c=0.8):
+    cdef int b_orig = 32
+    cdef float s = (2**b_orig)/(2**b_new)
+    cdef float e = 0
+    cdef int i
+    cdef np.float32_t[::1] d = np.random.standard_normal(a.shape[0]).astype(np.float32)
+    cdef float F_scaled
+    cdef float F_scaled_dither
+    
+    
+    with nogil:
+        for i in range(a.shape[0]):
+            a[i] = a[i] * (2**(b_orig-1))
+            F_scaled = a[i] // s
+            F_scaled_dither = F_scaled + d[i] + c * e
+            a[i] = <float> floor(F_scaled_dither)
+            e = F_scaled - a[i]
+            a[i] = a[i] / (2**(b_new-1))
+            if a[i] > 1: a[i] = 1
+            elif a[i] < -1: a[i] = -1
+                
+    return a
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
@@ -32,11 +137,11 @@ cpdef fast_interp1d(np.float32_t[:] a, np.float32_t[:] x, dirty=False):
     cdef int xint
     if dirty:
         with nogil:
-            for i in range(x.shape[0]):
+            for i in range(N):
                 x[i] = a[<int> x[i]]
     else:
         with nogil:
-            for i in range(x.shape[0]):
+            for i in range(N):
                 xint = <int> x[i]
                 r = x[i] - <float> xint
                 x[i] = r * a[xint] + (1-r) * a[xint+1]
