@@ -12,7 +12,7 @@ import ondes.machine
 
 
 cubepath = '../data/crab.sn3.2.npy'
-dfpath = '../data/crab-df.npy'
+dfpath = '../data/crab.sn3.2.df.npy'
 machine = ondes.machine.Machine(cubepath, 0.3, dfpath)
 
 

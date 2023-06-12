@@ -6,6 +6,7 @@ import queue
 import numpy as np
 import time
 import scipy.interpolate
+import traceback
 
 from . import core
 from . import config
@@ -94,13 +95,12 @@ class Server(object):
                                    x_init, y_init, config.RANDOMWALKER_RADIUS) # step size
             self.low_timing_resolution = True
             self.filelen = 10
-            self.maxchans = self.basedata.shape[2] 
+            self.datachans = self.basedata.shape[2] 
             self.nchans = config.NCHANNELS
-            logging.info('channels number: {}'.format(self.maxchans))
+            logging.info('data channels number: {}'.format(self.datachans))
+            logging.info('output channels: {}'.format(self.nchans))
 
-            #self.bins = np.linspace(0, self.basedata.shape[2]-1, self.maxchans+1).astype(int)
-            #self.bins_diff = np.diff(self.bins)
-            self.filedata = np.zeros((self.filelen, self.maxchans), dtype=config.DTYPE)
+            self.filedata = np.zeros((self.filelen, self.datachans), dtype=config.DTYPE)
 
             # load first N samples
             for i in range(self.filelen - 1):
@@ -120,7 +120,7 @@ class Server(object):
             #self.filedata = self.filedata[:self.filedata.shape[0] - (self.filedata.shape[0] % config.BLOCKSIZE),:]
             #logging.info('data shape (cut to blocksize): {}'.format(self.filedata.shape))
         
-            self.maxchans = int(self.filedata.shape[1])
+            self.datachans = int(self.filedata.shape[1])
             self.filelen = self.filedata.shape[0]
             
         else: raise Exception('bad input data')
@@ -132,10 +132,10 @@ class Server(object):
         self.sampling_rate_factor = config.SAMPLERATE / file_srate            
         
 
-        self.time_index = 0
         self.data_index = 0
         self.last_loaded = 0
         self.next_to_load = 0
+        # 0:velocity , 1: release_time, 2: attack_time, 3: note on/off, 4: time since note on
         self.notes = np.zeros((127, 4), dtype=float)
         # self.trans = np.zeros((config.TRANS_SIZE, 4), dtype=float)
         # self.trans[:,0] = np.random.randint(0, self.filedata.shape[0])
@@ -150,13 +150,17 @@ class Server(object):
         self.callback_rands_phase = np.random.uniform(1, 4, size=len(self.callback_rands))
 
         self.sample_rands = np.full(len(self.notes), 1e-5)
-        self.sample_rands_factor = np.random.uniform(2, 10, size=len(self.sample_rands))
+        self.sample_rands_factor = np.random.uniform(5, 20, size=len(self.sample_rands))
         self.sample_rands_phase = np.random.uniform(1, 4, size=len(self.sample_rands))
         
         # init time matrix
+        self.time_index = 0 # used only to compute randomized processes in the machine
         self.time_matrix = np.ones(
-            (config.BUFFERSIZE, self.maxchans),
+            (config.BUFFERSIZE, self.nchans),
             dtype=config.DTYPE) * np.arange(config.BUFFERSIZE).reshape((config.BUFFERSIZE, 1)).astype(config.DTYPE)
+        # angle of each note
+        self.alphas = np.zeros((len(self.notes), self.datachans), dtype=config.DTYPE)
+        
 
         
         def get_sample(blocksize, cc):
@@ -171,24 +175,31 @@ class Server(object):
                 return interp_axis, next_data_index
 
             blocktime = blocksize / config.SAMPLERATE * 1000
-            #print(blocksize, blocktime, np.sum(self.notes[:,3]))
             
             release_time = utils.cc_rescale(cc['release_time'], 1, config.MAX_RELEASE_TIME) # in ms
             attack_time = utils.cc_rescale(cc['attack_time'], 1, config.MAX_ATTACK_TIME) # in ms
             
             for inote in range(len(self.notes)):
-                if self.data['note{}'.format(inote)].get() > 0:
-                    if self.notes[inote, 3]:
-                        if self.notes[inote, 1] > 0: # note released
-                            # inote: vel, release_time, attack_time
-                            self.notes[inote, :] = np.array((self.data['vel{}'.format(inote)].get(), 0, 0, 1))
+                if self.data['note{}'.format(inote)].get() > 0: # key pressed
+                    if self.notes[inote, 3]: # key pressed and note already on
+                        if self.notes[inote, 1] > 0: # note released (so pressed again)
+                            # recreate note but put release time to attack time
+                            self.notes[inote, 0] = self.data['vel{}'.format(inote)].get()
+                            release_ratio = 1-np.clip((self.notes[inote, 1])/release_time, 0,1)
+                            attack_ratio = np.clip((self.notes[inote,2])/attack_time, 0, 1)
+                            self.notes[inote, 2] = (release_ratio * attack_ratio) * attack_time + blocktime
+                            
+                            self.notes[inote, 1] = 0
+                            self.notes[inote, 3] = 1
                         else:
                             self.notes[inote, 2] += blocktime # add time to attack
                     
                             
-                    else:
+                    else: # key pressed, note off: create new one
+                        # 0:velocity , 1: release_time, 2: attack_time, 3: note on/off
                         self.notes[inote, :] = np.array((self.data['vel{}'.format(inote)].get(), 0, 0, 1))
-                elif self.notes[inote, 3]:
+                        self.alphas[inote, :] = 0
+                elif self.notes[inote, 3]: # key not pressed but note still on (released)
                     if self.notes[inote, 1] > release_time:
                         self.notes[inote, 3] = 0
                     else:
@@ -201,20 +212,15 @@ class Server(object):
                     self.data['y_orig0'].get(),
                     fast_move=True)
                 
-                    # channels selection
-            # chanc = utils.cc_rescale(cc['chanc'], 0, self.maxchans - 1)
-            # chanstd = utils.cc_rescale(cc['chanstd'], 0, self.maxchans*2)
-            # chanmin = int(max(chanc - 2*chanstd, 0))
-            # chanmax = int(min(chanc + 2*chanstd + 1, self.maxchans))
-            ## chan_eq = np.exp(-(np.arange(self.maxchans) - chanc)**2/(chanstd+0.5)**2)
-            chan_eq = np.ones(self.maxchans)
+            # channels equalization
+            chan_eq = np.ones(self.datachans)
 
             # frequency range
             freqmin = utils.cc_rescale(cc['freqmin'], -64, 127+64)
             freqrange = utils.cc_rescale(cc['freqrange'], 0, 256)
             freqmax = freqmin + freqrange#, 256)
 
-            notefreqs = np.linspace(freqmin, freqmax, self.maxchans)
+            notefreqs = np.linspace(freqmin, freqmax, self.datachans)
             freqs = utils.note2f(notefreqs, config.A_MIDIKEY).astype(config.DTYPE)
 
             # compute interp axis
@@ -226,10 +232,10 @@ class Server(object):
 
             if self.low_timing_resolution:
                 filedata_block = utils.fastinterp1d(
-                    np.copy(self.filedata[:,0:self.maxchans]), interp_axis[:2])[0,:]
+                    np.copy(self.filedata[:,0:self.datachans]), interp_axis[:2])[0,:]
             else:
                 filedata_block = utils.fastinterp1d(
-                    np.copy(self.filedata[:,0:self.maxchans]), interp_axis)
+                    np.copy(self.filedata[:,0:self.datachans]), interp_axis)
 
             if cc['keep'] > 0:
                 if self.keep is None:
@@ -244,7 +250,7 @@ class Server(object):
 
             # compute most significant freqs (witout transients)
             freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
-
+            
             # # autotune
             # autotune = 0
             # basef = (freqmin + freqmax)/2.
@@ -274,7 +280,6 @@ class Server(object):
 
 
             freqs = freqs[freqsorder].reshape((1, self.nchans))
-
             # load next sample
             if self.rw is not None:
                 self.next_to_load = int(self.data_index) + 2
@@ -314,8 +319,8 @@ class Server(object):
             #     return (np.where(sinx > 0, atan2, -atan2) *2) - 1
 
             for inote in range(len(self.notes)):
-                if not self.notes[inote, 3]: continue
-                freqshift = utils.note2f(inote, config.A_MIDIKEY) / utils.note2f(config.BASENOTE, config.A_MIDIKEY) 
+                if not self.notes[inote, 3]: continue # note off: continue
+                freqshift = utils.note2f(inote, config.A_MIDIKEY) / utils.note2f(config.BASENOTE, config.A_MIDIKEY) * (1 + self.sample_rands[inote])
                 ivelocity = 10**((self.notes[inote, 0] - 127)/(10*config.VELOCITY_SCALE))
 
                 iattack = np.linspace(self.notes[inote, 2],
@@ -327,17 +332,21 @@ class Server(object):
                 irelease = np.linspace(self.notes[inote, 1] - blocktime,
                                        self.notes[inote, 1],
                                        blocksize).reshape((blocksize,1))
+
                 irelease = (release_time - irelease) / release_time
                 irelease = np.clip(irelease,0,1)
 
-                x = (self.time_matrix[:blocksize,0:self.nchans] + config.DTYPE(self.time_index)) * (freqs[:, 0:self.nchans] * freqshift * (2 * np.pi / config.SAMPLERATE))
+                dt = self.time_matrix[1:blocksize+1, 0:self.nchans]
+                omega = freqs[:, 0:self.nchans] * freqshift * (2 * np.pi / config.SAMPLERATE)
+                         
+                dalpha = omega * dt
                 #x += inote * 40000 # dephase to avoid ZPD effects when time near 0
-                cosx = np.cos(x) 
+                cosx = np.cos(self.alphas[inote, freqsorder] + dalpha)
                 #carrier_matrix += (triangle(x, cosx) + cosx) / 2 * ivelocity * irelease * iattack
                 a = utils.cc_rescale(cc['square'], 0., 1.)
-                #powx = np.where(cosx > 0, cosx**a, -(-cosx)**a)
 
                 carrier_matrix += (np.sign(cosx) * a + cosx * (1-a)) * ivelocity * irelease * iattack
+                self.alphas[inote,freqsorder] += dalpha[-1,:self.nchans]
 
             if np.sum(self.notes[:,3]) == 0:
                 # security clean of time index since it
@@ -346,8 +355,9 @@ class Server(object):
                 # gltich every 100 s. float32 have 7 digits of
                 # precision max, which means no more than 200s
                 # at 44100
-                self.time_index = np.random.uniform(100000, 200000)
-
+                ##self.time_index = 
+                self.alphas.fill(np.random.uniform(100000, 200000))
+                
 
 
 
@@ -358,7 +368,7 @@ class Server(object):
             # equalizer
             #noct = np.log(fmax/fmin) / np.log(2) # number of octaves
             #pink_factor = utils.cc_rescale(cc['pink'], -4, 0)
-            #pink = (np.linspace(1, noct, self.maxchans)**(pink_factor))
+            #pink = (np.linspace(1, noct, self.nchans)**(pink_factor))
 
             carrier_matrix *= (filedata_block * chan_eq)[freqsorder] #* pink[0:self.nchans]
 
@@ -409,6 +419,8 @@ class Server(object):
                     sample, filedata_block, freqsorder = get_sample(blocksize, cc)
                 except Exception as e:
                     logging.warn('get_sample() exception: {}'.format(e))
+                    traceback.print_exc()
+                    quit()
                     sample = np.zeros(blocksize, dtype=config.DTYPE)
 
                 self.time_index += blocksize
@@ -418,9 +430,9 @@ class Server(object):
                 
                 if self.rw is not None and freqsorder is not None:
                     try:
-                        self.data['display_spectrum0'][:self.maxchans] = np.array(filedata_block, dtype=config.DTYPE)
-                        self.data['display_spectrum_len0'].set(self.maxchans)
-                        self.data['display_scatterx0'][:self.nchans] = np.arange(self.maxchans, dtype=config.DTYPE)[freqsorder]
+                        self.data['display_spectrum0'][:self.datachans] = np.array(filedata_block, dtype=config.DTYPE)
+                        self.data['display_spectrum_len0'].set(self.datachans)
+                        self.data['display_scatterx0'][:self.nchans] = np.arange(self.datachans, dtype=config.DTYPE)[freqsorder]
                         self.data['display_scattery0'][:self.nchans] = np.array(filedata_block[freqsorder], dtype=config.DTYPE)
                         self.data['display_scatter_len0'].set(self.nchans)
                     except Exception as e:

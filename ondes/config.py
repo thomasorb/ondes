@@ -37,7 +37,7 @@ MAX_SYNTHS = 1
 #SYNTH_LOOP_TIME = 3 # s
 #TRANSIT_TIME = SAMPLERATE * SYNTH_LOOP_TIME # in samples
 
-MAX_ATTACK_TIME = 100. # in ms.
+MAX_ATTACK_TIME = 1000. # in ms.
 MAX_RELEASE_TIME = 1000. # in ms.
 VOLUME_ADJUST = 10.
 VELOCITY_SCALE = 20. # impact of velocity on note volume, the higher the higher the sound on low velocity
@@ -51,7 +51,7 @@ TRANS_RELEASE = 10 # s
 
 
 MAX_DISPLAY_SIZE = 20000
-BINNING = 4 # binning of data vs image
+BINNING = 1 # binning of data vs image
 RANDOMWALKER_RADIUS = 3
 
 FMIN = 20 # min frequency in Hz
