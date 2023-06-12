@@ -366,11 +366,11 @@ class Server(object):
             filedata_block = filedata_block ** brightness
 
             # equalizer
-            #noct = np.log(fmax/fmin) / np.log(2) # number of octaves
-            #pink_factor = utils.cc_rescale(cc['pink'], -4, 0)
-            #pink = (np.linspace(1, noct, self.nchans)**(pink_factor))
-
-            carrier_matrix *= (filedata_block * chan_eq)[freqsorder] #* pink[0:self.nchans]
+            noct = np.log(freqs/utils.note2f(freqmin, config.A_MIDIKEY)) / np.log(2) # number of octaves
+           
+            pink_factor = utils.cc_rescale(cc['pink'], -4, 0)
+            pink = (noct)**(pink_factor)
+            carrier_matrix *= (filedata_block * chan_eq)[freqsorder] * pink
 
             # merge channels
             sound = np.mean(carrier_matrix, axis=1)

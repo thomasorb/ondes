@@ -77,6 +77,7 @@ CC_MATRIX = {
     'sample_inhomogeneity': (1,2,0),
     'm': (1,3,0),
     'damp': (1,4,127),
+    'pink': (1,5,127),
     'tube': (1,6,0),
     'volume': (1,7,63),
     }

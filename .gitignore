@@ -8,6 +8,7 @@
 ondes/*.so
 ondes/*.o
 ondes/*.c
+ondes/__pycache__
 dist/
 build/
 orb_kernel.egg-info/
