@@ -5,6 +5,7 @@ import logging
 DEVICE = 'Steinberg UR22mkII'
 #DEVICE = 'front'
 #MIDIDEVICE = 'Steinberg UR22mkII'
+#DEVICE = 'default'
 
 MIDIDEVICES = ('MPK mini 3', 'nanoKONTROL2', 'Steinberg UR22mkII')
 
@@ -69,7 +70,7 @@ CC_MATRIX = {
     'release_time': (0,77,64),
     #'trans_presence': (0,1,0),
     #'trans_release': (0,2,64),
-    'rec': (0,45,0),
+    'rec': (1,45,0),
     'keep': (0,41,0),
     'unkeep': (0,42,0),
     'square': (1,0,0),

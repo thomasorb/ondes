@@ -140,7 +140,7 @@ class Server(object):
         # self.trans = np.zeros((config.TRANS_SIZE, 4), dtype=float)
         # self.trans[:,0] = np.random.randint(0, self.filedata.shape[0])
         # self.trans[:,2] = 1000 * config.TRANS_RELEASE
-        self.keep = None
+        #self.keep = None
         self.vL = 0
         self.pL = 0
         self.vR = 0
@@ -237,16 +237,16 @@ class Server(object):
                 filedata_block = utils.fastinterp1d(
                     np.copy(self.filedata[:,0:self.datachans]), interp_axis)
 
-            if cc['keep'] > 0:
-                if self.keep is None:
-                    self.keep = np.copy(filedata_block)
-                else:
-                    self.keep = (filedata_block + self.keep)/2
-            elif self.keep is not None:
-                filedata_block = (filedata_block + self.keep)/2
+            # if cc['keep'] > 0:
+            #     if self.keep is None:
+            #         self.keep = np.copy(filedata_block)
+            #     else:
+            #         self.keep = (filedata_block + self.keep)/2
+            # elif self.keep is not None:
+            #     filedata_block = (filedata_block + self.keep)/2
 
-            if cc['unkeep'] > 0:
-                self.keep = None
+            # if cc['unkeep'] > 0:
+            #     self.keep = None
 
             # compute most significant freqs (witout transients)
             freqsorder = np.argsort(filedata_block)[::-1][:self.nchans]
@@ -366,8 +366,8 @@ class Server(object):
             filedata_block = filedata_block ** brightness
 
             # equalizer
-            noct = np.log(freqs/utils.note2f(freqmin, config.A_MIDIKEY)) / np.log(2) # number of octaves
-           
+            noct = np.clip(np.log(freqs/utils.note2f(freqmin, config.A_MIDIKEY)) / np.log(2), 0.1, 1000) # number of octaves
+            
             pink_factor = utils.cc_rescale(cc['pink'], -4, 0)
             pink = (noct)**(pink_factor)
             carrier_matrix *= (filedata_block * chan_eq)[freqsorder] * pink
@@ -399,9 +399,9 @@ class Server(object):
             #cc['volume'] = 126
             #cc['trans_presence'] = 0
             #cc['trans_release'] = 64            
-            cc['rec'] = 0
-            cc['keep'] = 0
-            cc['unkeep'] = 0
+            #cc['rec'] = 0
+            #cc['keep'] = 0
+            #cc['unkeep'] = 0
             #######################
             
             filedata_block = None
@@ -439,23 +439,6 @@ class Server(object):
                         logging.warning('error at display', e)
 
             
-
-            if cc['rec'] and not self.recording:
-                self.recording = True
-                self.to_record = list()
-                
-            if not cc['rec'] and self.recording:
-                self.recording = False
-                if len(self.to_record) > 0:
-                    sf.write('{}.wav'.format(int(time.time())),
-                             np.vstack(self.to_record),
-                             config.SAMPLERATE)
-                self.to_record = list()
-                
-            if self.recording:
-                self.to_record.append(data)
-                
-            self.data.timing_buffers['server_callback_time'].put(time.time() - stime)
 
 
             # use next sample to generate effects larger than one sample (e.g. lowpass)
@@ -518,12 +501,36 @@ class Server(object):
             # clip
             stereo = np.clip(stereo, -1, 1)
 
+            # push to outdata
             outdata[:] = stereo
+
+            # record
+            if cc['rec'] and not self.recording:
+                print('recording')
+                self.recording = True
+                self.to_record = list()
+                
+            if not cc['rec'] and self.recording:
+                print('recording stops')
+                self.recording = False
+                if len(self.to_record) > 0:
+                    recpath = '{}.wav'.format(int(time.time()))
+                    sf.write(recpath,
+                             np.vstack(self.to_record).astype(float),
+                             config.SAMPLERATE)
+                    print('data saved as', recpath)
+                self.to_record = list()
+                
+            if self.recording:
+                self.to_record.append(stereo)
+                
+            self.data.timing_buffers['server_callback_time'].put(time.time() - stime)
+
 
             return
 
         self.stream = sd.OutputStream(
-            samplerate=config.SAMPLERATE, blocksize=0,#config.BLOCKSIZE,
+            samplerate=config.SAMPLERATE, blocksize=0,
             latency=config.LATENCY / 1000,
             device=self.get_device(), channels=2, dtype=config.DTYPE,
             callback=callback)
