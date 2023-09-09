@@ -17,7 +17,7 @@ class SynthData(object):
         self.xyline = None
         self.xyscatter = None
         self.spectrum = None
-        #self.sample = None
+        self.sample = None
         
     def add_xy(self, new_x, new_y):
         if len(self.x) == 0 or new_x != self.x[-1] or new_y != self.y[-1]:
@@ -35,7 +35,7 @@ class SynthData(object):
         
 class CubeDisplay(object):
 
-    colors = ['#afff76', '#7fc5ff', '#B682FF']    
+    colors = ['white', 'tab:red', 'tab:blue']#['#afff76', '#7fc5ff', '#B682FF']
 
     def __init__(self, data, dfpath):
 
@@ -44,7 +44,8 @@ class CubeDisplay(object):
         
         GRIDSIZE = 10 #must be even
         SPECSIZE = 3
-        PERC = 99
+        PERC = 98
+        IMPOW = 0.2
         
         self.df = np.load(dfpath).real
         self.synths = list()
@@ -61,29 +62,30 @@ class CubeDisplay(object):
         self.image_ax = self.imfig.add_subplot(gs[:, 0:GRIDSIZE])
         
         #self.image_ax.cla()
-        vmin, vmax = np.nanpercentile(self.df, [30, PERC])
-        self.image_ax.imshow(self.df.T, vmin=vmin, vmax=vmax, origin='lower',
+        vmin, vmax = np.nanpercentile(self.df**IMPOW, [30, PERC])
+        self.image_ax.imshow(self.df.T**IMPOW, vmin=vmin, vmax=vmax, origin='lower',
                              interpolation='nearest',
-                             cmap='hot')
+                             cmap='gray')
         self.image_ax.axis('off')
 
         for i in range(config.MAX_SYNTHS):
         
             (self.synths[i].xyline, ) = self.image_ax.plot(
-                [0,0], [0,0], animated=False, color=self.colors[i], alpha=0.5)
+                [0,0], [0,0], animated=False, color=self.colors[i], alpha=0.1)
             self.synths[i].xyscatter = self.image_ax.scatter(
-                0, 0, animated=False, color=self.colors[i], alpha=1, s=30, marker='+')
+                0, 0, animated=False, color='tab:red',
+                alpha=1, s=30, marker='+')
         
         
         index = 0
-        #self.sample_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
-        #index += SPECSIZE
+        self.sample_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
+        index += SPECSIZE
         self.spectrum_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
         index += SPECSIZE
         #self.power_ax = self.imfig.add_subplot(gs[index:index+SPECSIZE,GRIDSIZE:])
         
         self.spectrum_ax.plot(np.zeros(100))
-        #self.sample_ax.plot(np.zeros(100))
+        self.sample_ax.plot(np.zeros(100))
         #self.power_ax.plot(np.zeros(100))
         
         self.imfig.show()
@@ -108,6 +110,7 @@ class CubeDisplay(object):
                 self.synths[i].spectrum = self.data['display_spectrum{}'.format(i)][:self.data['display_spectrum_len{}'.format(i)].get()]
                 self.synths[i].scatterx = self.data['display_scatterx{}'.format(i)][:self.data['display_scatter_len{}'.format(i)].get()]
                 self.synths[i].scattery = self.data['display_scattery{}'.format(i)][:self.data['display_scatter_len{}'.format(i)].get()]
+                self.synths[i].sample = self.data['display_sample{}'.format(i)][:self.data['display_sample_len{}'.format(i)].get()]
                 
             self.redraw_plots()
             self.redraw_on_image()
@@ -116,7 +119,7 @@ class CubeDisplay(object):
             self.redraw_term()
             self.termfig.canvas.flush_events()
             
-            time.sleep(0.1)
+            time.sleep(0.01)
             
             
 
@@ -132,10 +135,11 @@ class CubeDisplay(object):
         ax.set_facecolor('black')
         for i in range(len(data)):
             if axis is None:
-                ax.plot(data[i][0], c=self.colors[i], label=title, alpha=0.5)                
+                ax.plot(data[i][0], c=self.colors[i], label=title, alpha=.6)
             else:
-                ax.plot(axis[i], data[i][0], c=self.colors[i], label=title, alpha=0.5)
-            ax.scatter(data[i][1], data[i][2], c=self.colors[i], label=title, alpha=0.5, marker='+')
+                ax.plot(axis[i], data[i][0], c=self.colors[i], label=title, alpha=.6)
+            if len(data[i]) == 3:
+                ax.scatter(data[i][1], data[i][2], c=self.colors[i], label=title, alpha=.8, marker='.')
             #ax.lines[i].set_data(np.arange(np.size(data[i][0])), data[i][0]) # set plot data
         ax.relim()                  # recompute the data limits
         ax.autoscale_view()         # automatic axis scaling
@@ -155,23 +159,23 @@ class CubeDisplay(object):
         
     def redraw_plots(self):
         spectra = list()
-        #samples = list()
+        samples = list()
         #powersp = list()
         #powaxes = list()
         for i in range(config.MAX_SYNTHS):
             if self.synths[i].spectrum is not None:
                 spectra.append((self.synths[i].spectrum, self.synths[i].scatterx, self.synths[i].scattery))
                 
-            #if self.synths[i].sample is not None:
-            #    samples.append(self.synths[i].sample)
+            if self.synths[i].sample is not None:
+               samples.append((self.synths[i].sample,))
             #    iaxis, ipow = utils.power_spectrum(self.synths[i].sample, config.SAMPLERATE)
             #    powersp.append(ipow)
             #    powaxes.append(iaxis)
                 
         if len(spectra) > 0:
             self.redraw_plot(self.spectrum_ax, spectra, 'spectrum')
-        # if len(samples) > 0:
-        #     self.redraw_plot(self.sample_ax, samples, 'sample')
+        if len(samples) > 0:
+            self.redraw_plot(self.sample_ax, samples, 'sample')
         #     self.redraw_plot(self.power_ax, powersp, 'power spectrum', xlim=(20, 20000), log=True, axis=powaxes)
 
                 

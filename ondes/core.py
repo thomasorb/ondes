@@ -298,8 +298,8 @@ class Data(object):
             self.add_array('display_scattery{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
             self.add_value('display_scatter_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
             
-            # self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
-            # self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
+            self.add_array('display_sample{}'.format(isynth), np.arange(config.MAX_DISPLAY_SIZE, dtype=config.DTYPE))
+            self.add_value('display_sample_len{}'.format(isynth), config.MAX_DISPLAY_SIZE)
 
 
         

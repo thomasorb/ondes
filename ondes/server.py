@@ -435,6 +435,8 @@ class Server(object):
                         self.data['display_scatterx0'][:self.nchans] = np.arange(self.datachans, dtype=config.DTYPE)[freqsorder]
                         self.data['display_scattery0'][:self.nchans] = np.array(filedata_block[freqsorder], dtype=config.DTYPE)
                         self.data['display_scatter_len0'].set(self.nchans)
+                        self.data['display_sample0'][:len(sample)] = np.array(sample, dtype=config.DTYPE)
+                        self.data['display_sample_len0'].set(len(sample))
                     except Exception as e:
                         logging.warning('error at display', e)
 
